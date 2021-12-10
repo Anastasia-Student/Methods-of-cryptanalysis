@@ -47,3 +47,22 @@ map<Bigram, Frequancy> bigramFrequencyWithIntersections(const string& text, int 
 		frequancy.second.frequancy = frequancy.second.number / (double)lenght;  // Расчет частоты
 	return frequencies;
 }
+
+template<typename Type>
+double entropy(const map <Type, Frequancy>& frequencies, int l)  // Энтропия
+{
+	double summ = 0.000;
+	for (auto& frequency : frequencies)  // Проход по частотом
+		summ += frequency.second.frequancy * log2(frequency.second.frequancy);  // Расчет по формуле
+	return 1.0 / (double)l * -summ;  // Расчет по формуле
+}
+
+template<typename Type>
+double complianceIndex(const map <Type, Frequancy>& frequencies, int lettersCount)  // Индекс совпадений
+{
+	double summ = 0.000;
+	for (auto& frequency : frequencies)  // Проход по частотам
+		if (frequency.second.number)
+			summ += (double)frequency.second.number * ((double)frequency.second.number - 1.0);  // Расчет по формуле
+	return 1.0 / ((double)lettersCount * ((double)lettersCount - 1.0)) * summ;  // Расчет по формуле
+}
