@@ -52,7 +52,7 @@ struct Bigram  // Биграмма
 
 	operator string()  // Преобразование в строку
 	{
-		return "" + letters[0] + letters[1];
+		return string("") + letters[0] + letters[1];
 	}
 
 	friend ostream& operator << (ostream& stream, const Bigram& bigram)  // Оператор вывода в поток
