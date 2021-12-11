@@ -179,3 +179,35 @@ Criterion40Result criterion40(map<Type, Frequancy> partFrequencies,   // Кри�
 		result.h1 = true;  // Гипотеза H1 верна
 	return result;
 }
+
+
+template <typename Type>
+Criterion50Result criterion50(const string& text, map<Type, Frequancy>& frequencies,  // Критерий 5.0
+	int j = 4, int kempt = 1, int lenght = -1)
+{
+	Criterion50Result result;
+	if (lenght < 0 || lenght >(int)text.size())
+		lenght = (int)text.size();
+	vector<pair<Type, Frequancy>> bprh(frequencies.size());  // Bprh
+	for (auto counter : frequencies)  // Копирование map в vector
+		bprh.push_back(counter);  // Копирование map в vector
+	sort(bprh.begin(), bprh.end(), [](const pair<Type, Frequancy>& a,  // Сортировка по частоте (по убыванию)
+		const pair<Type, Frequancy>& b) -> bool { return a.second.frequancy < b.second.frequancy; });
+	map<Type, int> boxes;  // Коробки
+	j = j < (int)bprh.size() ? j : (int)bprh.size();
+	for (int i = 0; i < j; i++)  // J Букв биграмм с наименьшей частотой
+	{
+		int offset = 0;
+		while ((offset = (int)text.find(bprh[i].first, offset + 1)) != -1)  // Подcчет количества Bprh_i в тексте
+			boxes[bprh[i].first]++;
+	}
+	int fempt = 0;
+	for (auto box : boxes)
+		if (box.second == 0)  // Если коробка пуста
+			fempt++;  // Считаем
+	result.fempt = fempt;
+	result.kempt = kempt;
+	if (fempt < kempt)  // Если Fempt < Kempt
+		result.h1 = true;  // Гипотеза H1 верна
+	return result;
+}
