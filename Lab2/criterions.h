@@ -180,6 +180,12 @@ Criterion40Result criterion40(map<Type, Frequancy> partFrequencies,   // Кри�
 	return result;
 }
 
+struct Criterion50Result  // Структура результата критерия 5.0
+{
+	bool h1 = false;  // Гипотеза H1
+	int fempt = 0;  // Fempt
+	int kempt = 0;  // Kempt
+};
 
 template <typename Type>
 Criterion50Result criterion50(const string& text, map<Type, Frequancy>& frequencies,  // Критерий 5.0
