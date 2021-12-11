@@ -157,3 +157,25 @@ Criterion23Result criterion23(const string& text, map<Type, Frequancy>& counters
 
 	return result;
 }
+
+
+struct Criterion40Result  // Структура результата критерия 4.0
+{
+	bool h1 = false;  // Гипотеза H1
+	double k = 0.0;
+	double kl = 0.0;
+};
+
+template <typename Type>
+Criterion40Result criterion40(map<Type, Frequancy> partFrequencies,   // Критерий 4.0
+	int partLenght, map<Type, Frequancy>& frequencies,  int textLenght, double kl = 0.009, int lenght = -1)
+{
+	Criterion40Result result;
+	auto k = abs(complianceIndex(partFrequencies, partLenght) - // |I - I'|
+		complianceIndex(frequencies, textLenght));
+	result.k = k;
+	result.kl = kl;
+	if (k > kl)  // Если |I - I'| > kl
+		result.h1 = true;  // Гипотеза H1 верна
+	return result;
+}
