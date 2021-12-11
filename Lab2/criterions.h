@@ -73,3 +73,44 @@ Criterion21Result criterion21(const string& text, map<Type, Frequancy>& counters
 
 	return result;
 }
+
+struct Criterion22Result  // Структура результата критерия 2.2
+{
+	bool h1 = false;  // Гипотеза H1
+	int kh = 0;  // Kh
+	double fx = 0;  // Fx
+	double kx = 0;  // Kx
+	string unit;  // Биграмма или буква
+};
+
+template <typename Type>
+Criterion22Result criterion22(const string& text, map<Type, Frequancy>& counters, int kh = 5, int lenght = -1)  // Критерий 2.2
+{
+	Criterion22Result result;
+	result.kh = kh;
+	if (lenght < 0 || lenght >(int)text.size())
+		lenght = (int)text.size();
+	vector<pair<Type, Frequancy>> afrg(counters.size());  // Afrg
+	for (auto counter : counters)  // Копирование map в vector
+		afrg.push_back(counter);
+	sort(afrg.begin(), afrg.end(), [](const pair<Type, Frequancy>& a,  // Сортировка по частоте
+		const pair<Type, Frequancy>& b) -> bool { return a.second.frequancy > b.second.frequancy; });
+	for (int i = 0; i < kh; i++)  // Первые Kh биграммы/буквы по частоте
+	{
+		double kx = afrg[i].second.frequancy;
+		int offset = 0;
+		double fx = 0;
+		while ((offset = (int)text.find(afrg[i].first, offset + 1)) != -1)
+			fx++;
+		fx /= (double)lenght;
+		if (fx < kx)  // Если fx < kx
+		{
+			result.unit = afrg[i].first;
+			result.fx = fx;
+			result.kx = kx;
+			result.h1 = true;  // Гипотеза H1 верна
+			break;
+		}
+	}
+	return result;
+}
