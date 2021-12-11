@@ -69,6 +69,45 @@ void printBigramFrequency(const map<Bigram, Frequancy>& counters, size_t lenght,
 	stream << "----------------------\n";
 }
 
+// Генерация случайного текста
+void generateRandomText(string& text)
+{
+	for (size_t j = 0; j < text.length(); j++)
+		text[j] = letter(rand());
+}
+
+// Шифр Виженера
+void vigener(string& text, int r)
+{
+	for (size_t j = 0; j < text.size(); j++)
+		text[j] = letter(code(text[j]) + j % r);
+}
+
+// Афинная подстановка
+void affineSubstitution(string& text, Letter a = rand() % 32, Letter b = rand() % 32)
+{
+	for (int j = 0; j < (int)text.size(); j++)
+		text[j] = letter(a * code(text[j]) + b);
+}
+
+// Равномерное заполнение
+void uniformDistribution(string& text)
+{
+	for (int j = 0; j < (int)text.size(); j++)
+		text[j] = letter(j);
+}
+
+// Текст на основе соотношения
+void distribution(string& text)
+{
+	if (text.size() >= 1)
+		text[0] = letter(rand());
+	if (text.size() >= 2)
+		text[1] = letter(rand());
+	for (size_t j = 2; j < text.size(); j++)
+		text[j] = letter(code(text[j - 1]) + code(text[j - 2]));
+}
+
 int main()
 {
 	setlocale(LC_ALL, "rus");
