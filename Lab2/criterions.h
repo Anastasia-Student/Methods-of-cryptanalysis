@@ -217,3 +217,27 @@ Criterion50Result criterion50(const string& text, map<Type, Frequancy>& frequenc
 		result.h1 = true;  // Гипотеза H1 верна
 	return result;
 }
+
+
+struct StructureCriterionResult  // Структура результата структурного критерия
+{
+	bool h1 = false;  // Гипотеза H1
+	size_t size = 0;  // Размер сжатого текста
+	size_t randomSize = 0;  // Размер сжатого случайного текста
+};
+
+struct ComressionResult
+{
+	size_t size = 0;
+	size_t compressedSize = 0;
+	bool complited = false;
+};
+
+StructureCriterionResult structureCriterion(const ComressionResult& demaged, const ComressionResult& random)
+{
+	StructureCriterionResult result;
+	result.size = demaged.compressedSize;
+	result.randomSize = random.compressedSize;
+	result.h1 = demaged.compressedSize < random.compressedSize;  // Гипотеза зависит от размеров
+	return result;
+}
