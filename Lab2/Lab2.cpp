@@ -6,10 +6,12 @@
 #include "Huffman.h"
 #include "GZip.h"
 #include "Deflate.h"
+#include "LZ77.h"
 
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <functional>
 
 using namespace std;
 
@@ -22,7 +24,7 @@ void printBigramFrequencyHeader(const map<Letter, Frequancy>& counters, size_t l
 }
 
 // Вывести частоты букв
-void printLetterFrequency(const map<Letter, Frequancy> &counters, size_t lenght, ostream& stream = cout)
+void printLetterFrequency(const map<Letter, Frequancy>& counters, size_t lenght, ostream& stream = cout)
 {
 	printBigramFrequencyHeader(counters, lenght, stream);
 	vector<pair<Letter, Frequancy>> vectorCounters(counters.size());
@@ -49,7 +51,7 @@ void printBigramFrequencyHeader(const map<Bigram, Frequancy>& counters, size_t l
 		complianceIndex(counters, (int)lenght) << ", L = " << lenght << endl;
 }
 
-// Вывести частоты биграмм
+// Вывести частоты букв
 void printBigramFrequency(const map<Bigram, Frequancy>& counters, size_t lenght, ostream& stream = cout)
 {
 	printBigramFrequencyHeader(counters, lenght, stream);
@@ -69,6 +71,123 @@ void printBigramFrequency(const map<Bigram, Frequancy>& counters, size_t lenght,
 	stream << "----------------------\n";
 }
 
+// Вывести данные о сжатии
+void printCompressedTable(ComressionResult result, string name, ostream& stream = cout)
+{
+	stream << "\rТекст с файла filtered_text.txt сжат алгоритмом " << name << " с " << result.size
+		<< " бит до " << result.compressedSize << " бит (" << setprecision(2) << fixed
+		<< result.compressedSize / (float)result.size * 100.0 << "%)\n";
+}
+
+struct FPFN
+{
+	string name;
+	double l1fn;
+	double l1fp;
+	double l2fn;
+	double l2fp;
+	double l2fnwi;
+	double l2fpwi;
+};
+
+struct Criterion50Data
+{
+	string name;
+	int L;
+	int l;
+	int j;
+
+	friend bool operator == (const Criterion50Data& left, const Criterion50Data& right)
+	{
+		return left.L == right.L && left.l == right.l && left.name == right.name && left.j == right.j;
+	}
+
+	friend bool operator < (const Criterion50Data& left, const Criterion50Data& right)
+	{
+		if (left.name < right.name)
+			return true;
+		else if (left.L < right.L)
+			return true;
+		else if (left.l < right.l)
+			return true;
+		else if (left.j < right.j)
+			return true;
+		return false;
+	}
+};
+
+// Вывести таблицу с FP и FN значениями
+void printCriterionsTableBody(map<string, FPFN> h1Counters, ostream& stream = cout)
+{
+	for (auto value : h1Counters)
+		stream << "| " << setw(14) << left << value.first << " | " << setprecision(3) << fixed << setw(10) << value.second.l1fp << " | " << setw(10) << value.second.l1fn << " | "
+		<< setw(13) << value.second.l2fpwi << " | " << setw(13) << value.second.l2fnwi << " | "
+		<< setw(10) << value.second.l2fp << " | " << setw(10) << value.second.l2fn << " |" << endl;
+	stream << "------------------------------------------------------------------------------------------------------" << endl;
+}
+
+// Вывести заголовок таблицы с FP и FN значениями с r
+void printCriterionsTable(map<string, FPFN> h1Counters, int l, int r, string type, ostream& stream = cout)
+{
+	stringstream header;
+	stream << "------------------------------------------------------------------------------------------------------" << endl;
+	header << "Искажение c помощью " << type << " (L = " << l << ", r = " << r << ")";
+	stream << "| " << setw(98) << left << header.str() << " |" << endl;
+	stream << "------------------------------------------------------------------------------------------------------" << endl;
+	stream << "| Номер критерия | FP (l = 1) | FN (l = 1) | FP (l = 2, п) | FN (l = 2, п) | FP (l = 2) | FN (l = 2) |" << endl;
+	stream << "------------------------------------------------------------------------------------------------------" << endl;
+	printCriterionsTableBody(h1Counters, stream);
+}
+
+// Вывести заголовок таблицы с FP и FN значениями
+void printCriterionsTable(map<string, FPFN> h1Counters, int l, string type, ostream& stream = cout)
+{
+	stringstream header;
+	stream << "------------------------------------------------------------------------------------------------------" << endl;
+	header << "Искажение c помощью " << type << " (L = " << l << ")";
+	stream << "| " << setw(98) << left << header.str() << " |" << endl;
+	stream << "------------------------------------------------------------------------------------------------------" << endl;
+	stream << "| Номер критерия | FP (l = 1) | FN (l = 1) | FP (l = 2, п) | FN (l = 2, п) | FP (l = 2) | FN (l = 2) |" << endl;
+	stream << "------------------------------------------------------------------------------------------------------" << endl;
+	printCriterionsTableBody(h1Counters, stream);
+}
+
+struct CompressionData
+{
+	double fn;
+	double fp;
+};
+
+// Вывести таблицу со значениями сжатий
+void printCompressionTable(map<string, CompressionData> values, int lenght, int n, string type, ostream& stream = cout)
+{
+	stream << "Результаты применения структурного критерия с разными алгоритмами сжатия(L = " << lenght <<
+		", N = " << n << ", вид искажения = " << type << "):" << endl;
+	stream << "----------------------------------------" << endl;
+	stream << "| Алгоритм сжатия  | FP       | FN     |" << endl;
+	stream << "|--------------------------------------|" << endl;
+	for (auto value : values)
+	{
+		stream << "| " << setw(16) << left << value.first << " | " << setw(7) << left << value.second.fp << " | "
+			<< setw(7) << left << value.second.fn << " |" << endl;
+		stream << "|--------------------------------------|" << endl;
+	}
+}
+
+// Вывести таблицу из 5 задачи
+void printTask5Table(vector<bool> values, ostream& stream = cout)
+{
+	stream << "----------------------------------------------------" << endl;
+	stream << "| Номер текста | Результат применения критерия 4.0 |" << endl;
+	stream << "----------------------------------------------------" << endl;
+	for (size_t i = 0; i < values.size(); i++)
+	{
+		stream << "| " << setw(12) << left << (i + 1) << " | " << setw(33) << left <<
+			(values[i] ? "случайный" : "неслучайный") << " |" << endl;
+		stream << "----------------------------------------------------" << endl;
+	}
+}
+
 // Генерация случайного текста
 void generateRandomText(string& text)
 {
@@ -77,7 +196,7 @@ void generateRandomText(string& text)
 }
 
 // Шифр Виженера
-void vigener(string& text, int r = 5)
+void vigener(string& text, int r = INT_MAX)
 {
 	for (size_t j = 0; j < text.size(); j++)
 		text[j] = letter(code(text[j]) + j % r);
@@ -108,101 +227,9 @@ void distribution(string& text)
 		text[j] = letter(code(text[j - 1]) + code(text[j - 2]));
 }
 
-// Вывести данные о сжатии
-void printCompressedTable(ComressionResult result, string name, ostream& stream = cout)
-{
-	stream << "Текст с файла filtered_text.txt сжат алгоритмом " << name << " с " << result.size
-		<< " бит до " << result.compressedSize << " бит (" << setprecision(2) << fixed
-		<< result.compressedSize / (float)result.size * 100.0 << "%)\n";
-}
-
-// Вывести таблицу с FP и FN значениями
-void printCriterionsTableBody(map<string, double> h1Counters, ostream& stream = cout)
-{
-	stream << "| 2.0            | " << setprecision(3) << fixed << setw(10) << h1Counters["2.0.fp1"] << " | " << setw(10) << h1Counters["2.0.fn1"] <<
-		" | " << setw(10) << h1Counters["2.0.fp2"] << " | " << setw(10) << h1Counters["2.0.fn2"] << " |" << endl;
-	stream << "| 2.1            | " << setw(10) << h1Counters["2.1.fp1"] << " | " << setw(10) << h1Counters["2.1.fn1"] <<
-		" | " << setw(10) << h1Counters["2.1.fp2"] << " | " << setw(10) << h1Counters["2.1.fn2"] << " |" << endl;
-	stream << "| 2.2            | " << setw(10) << h1Counters["2.2.fp1"] << " | " << setw(10) << h1Counters["2.2.fn1"] <<
-		" | " << setw(10) << h1Counters["2.2.fp2"] << " | " << setw(10) << h1Counters["2.2.fn2"] << " |" << endl;
-	stream << "| 2.3            | " << setw(10) << h1Counters["2.3.fp1"] << " | " << setw(10) << h1Counters["2.3.fn1"] <<
-		" | " << setw(10) << h1Counters["2.3.fp2"] << " | " << setw(10) << h1Counters["2.3.fn2"] << " |" << endl;
-	stream << "| 4.0            | " << setw(10) << h1Counters["4.0.fp1"] << " | " << setw(10) << h1Counters["4.0.fn1"] <<
-		" | " << setw(10) << h1Counters["4.0.fp2"] << " | " << setw(10) << h1Counters["4.0.fn2"] << " |" << endl;
-	stream << "| 5.0 (2, 50)    | " << setw(10) << h1Counters["5.0.fp1-2"] << " | " << setw(10) << h1Counters["5.0.fn1-2"] <<
-		" | " << setw(10) << h1Counters["5.0.fp2-50"] << " | " << setw(10) << h1Counters["5.0.fn2-50"] << " |" << endl;
-	stream << "| 5.0 (4, 100)   | " << setw(10) << h1Counters["5.0.fp1-4"] << " | " << setw(10) << h1Counters["5.0.fn1-4"] <<
-		" | " << setw(10) << h1Counters["5.0.fp2-100"] << " | " << setw(10) << h1Counters["5.0.fn2-100"] << " |" << endl;
-	stream << "| 5.0 (6, 200)   | " << setw(10) << h1Counters["5.0.fp1-6"] << " | " << setw(10) << h1Counters["5.0.fn1-6"] <<
-		" | " << setw(10) << h1Counters["5.0.fp2-200"] << " | " << setw(10) << h1Counters["5.0.fn2-200"] << " |" << endl;
-	stream << "----------------------------------------------------------------------" << endl;
-}
-
-// Вывести заголовок таблицы с FP и FN значениями с r
-void printCriterionsTable(map<string, double> h1Counters, int l, int r, string type, ostream& stream = cout)
-{
-	stringstream header;
-	stream << "----------------------------------------------------------------------" << endl;
-	header << "Искажение c помощью " << type << " (L = " << l << ", r = " << r << ")";
-	stream << "| " << setw(66) << left << header.str() << " |" << endl;
-	stream << "----------------------------------------------------------------------" << endl;
-	stream << "| Номер критерия | FP (l = 1) | FN (l = 1) | FP (l = 2) | FN (l = 2) |" << endl;
-	stream << "----------------------------------------------------------------------" << endl;
-	printCriterionsTableBody(h1Counters, stream);
-}
-
-// Вывести заголовок таблицы с FP и FN значениями
-void printCriterionsTable(map<string, double> h1Counters, int l, string type, ostream& stream = cout)
-{
-	stringstream header;
-	stream << "----------------------------------------------------------------------" << endl;
-	header << "Искажение c помощью " << type << " (L = " << l << ")";
-	stream << "| " << setw(66) << left << header.str() << " |" << endl;
-	stream << "----------------------------------------------------------------------" << endl;
-	stream << "| Номер критерия | FP (l = 1) | FN (l = 1) | FP (l = 2) | FN (l = 2) |" << endl;
-	stream << "----------------------------------------------------------------------" << endl;
-	printCriterionsTableBody(h1Counters, stream);
-}
-
-// Вывести таблицу со значениями сжатий
-void printCompressionTable(map<string, double> values, int lenght, string type, ostream& stream = cout)
-{
-	stream << "Результаты применения структурного критерия с разными алгоритмами сжатия(L = " << lenght <<
-		", N = 10000, вид искажения = " << type << "):" << endl;
-	stream << "---------------------------------------" << endl;
-	stream << "| Алгоритм сжатия | FP      | FN      |" << endl;
-	stream << "|-------------------------------------|" << endl;
-	stream << "| DEFLATE         | " << setw(7) << left << values["DEFLATE.FP"] << " | "
-		<< setw(7) << left << values["DEFLATE.FN"] << " |" << endl;
-	stream << "|-------------------------------------|" << endl;
-	stream << "| GZip            | " << setw(7) << left << values["GZip.FP"] << " | "
-		<< setw(7) << left << values["GZip.FN"] << " |" << endl;
-	stream << "|-------------------------------------|" << endl;
-	stream << "| Huffman         | " << setw(7) << left << values["Huffman.FP"] << " | "
-		<< setw(7) << left << values["Huffman.FN"] << " |" << endl;
-	stream << "|-------------------------------------|" << endl;
-	stream << "| ShannonFano     | " << setw(7) << left << values["ShannonFano.FP"] << " | "
-		<< setw(7) << left << values["ShannonFano.FN"] << " |" << endl;
-	stream << "---------------------------------------" << endl;
-}
-
-// Вывести таблицу для 5 задачи
-void printTask5Table(vector<bool> values, ostream& stream = cout)
-{
-	stream << "----------------------------------------------------" << endl;
-	stream << "| Номер текста | Результат применения критерия 4.0 |" << endl;
-	stream << "----------------------------------------------------" << endl;
-	for (size_t i = 0; i < values.size(); i++)
-	{
-		stream << "| " << setw(12) << left << (i + 1) << " | " << setw(33) << left <<
-			(values[i] ? "случайный" : "неслучайный") << " |" << endl;
-		stream << "----------------------------------------------------" << endl;
-	}
-}
-
 int main()
 {
-	setlocale(LC_ALL, "rus");
+	setlocale(LC_ALL, "rus");  // Для вывод кирилицы
 
 	filter("text.txt", "filtered_text.txt");  // Фильтрация текста
 	auto text = load("filtered_text.txt");  // Загрузка отфильтрованного текста
@@ -212,29 +239,46 @@ int main()
 		return 1;
 	}
 
-	auto letterCounters = letterFrequency(text);  // Частоты букв
-	auto bigramCounters = bigramFrequency(text);  // Частоты биграмм
-	auto bigramCounterswI = bigramFrequencyWithIntersections(text);  // Частоты биграмм
+	auto letterCounters = letterFrequency(text);  // Частота букв
+	auto bigramCounters = bigramFrequency(text);  // Частота биграмм
+	auto bigramWithIntersectionsCounters = bigramFrequencyWithIntersections(text);  // Частота биграмм с пересечениями
 
 	ofstream letterFrequencyFile("letter_frequency.txt");  // Запись частоты букв
 	printLetterFrequency(letterCounters, text.size(), letterFrequencyFile);
 	letterFrequencyFile.close();
 	printBigramFrequencyHeader(letterCounters, text.size());
 
-	ofstream bigrammFrequencyFilewI("frequency_of_bigrams_with_intersections.txt");  // Запись частоты биграмм
-	printBigramFrequency(bigramCounterswI, text.size(), bigrammFrequencyFilewI);
-	bigrammFrequencyFilewI.close();
-	printBigramFrequencyHeader(bigramCounterswI, text.size());
-
 	ofstream bigrammFrequencyFile("frequency_of_bigrams.txt");  // Запись частоты биграмм
 	printBigramFrequency(bigramCounters, text.size(), bigrammFrequencyFile);
 	bigrammFrequencyFile.close();
 	printBigramFrequencyHeader(bigramCounters, text.size());
 
+	ofstream bigrammWithIntersectionsFrequencyFile("frequency_of_bigrams_with_intersections.txt");  // Запись частоты биграмм
+	printBigramFrequency(bigramWithIntersectionsCounters, text.size(), bigrammWithIntersectionsFrequencyFile);
+	bigrammWithIntersectionsFrequencyFile.close();
+	printBigramFrequencyHeader(bigramWithIntersectionsCounters, text.size());
+
 	vector<int> rs = { 1, 5, 10 };  // Значения r
 	vector<int> ls = { 10, 100, 1000, 10000 };  // Значения L
 	map<int, int> cicles = { {10, 10000}, {100, 10000}, {1000, 10000}, {10000, 1000} };  // Количество циклов для каждой L
+	map<Criterion50Data, int> Criterion50Datas =  // Значения для критерия 5.0
+	{
+		{{"5.0 2 50", 10, 2, 50}, 47}, {{"5.0 4 100", 10, 2, 100}, 95}, {{"5.0 6 200", 10, 2, 200}, 93},
 
+		{{"5.0 2 50", 10, 1, 2}, 1},  {{"5.0 4 100", 10, 1, 4}, 2},   {{"5.0 6 200", 10, 1, 6}, 3},
+
+		{{"5.0 2 50", 100, 2, 50}, 40}, {{"5.0 4 100", 100, 2, 100}, 60}, {{"5.0 6 200", 100, 2, 200}, 80},
+
+		{{"5.0 2 50", 100, 1, 2}, 1},   {{"5.0 4 100", 100, 1, 4}, 2},    {{"5.0 6 200", 100, 1, 6}, 3},
+
+		{{"5.0 2 50", 1000, 2, 50}, 30}, {{"5.0 4 100", 1000, 2, 100}, 50}, {{"5.0 6 200", 1000, 2, 200}, 70},
+
+		{{"5.0 2 50", 1000, 1, 2}, 1},   {{"5.0 4 100", 1000, 1, 4}, 2},    {{"5.0 6 200", 1000, 1, 6}, 3},
+
+		{{"5.0 2 50", 10000, 2, 50}, 20}, {{"5.0 4 100", 10000, 2, 100}, 30}, {{"5.0 6 200", 10000, 2, 200}, 50},
+
+		{{"5.0 2 50", 10000, 1, 2}, 1},   {{"5.0 4 100", 10000, 1, 4}, 2},    {{"5.0 6 200", 10000, 1, 6}, 3}
+	};
 	ofstream criteriaPassingResultsFile("criteria_passing_results.txt");  // Файл для записи критериев
 
 	// Шифр Виженера
@@ -244,180 +288,118 @@ int main()
 		string part(l, ' ');  // Строка длиной L
 		for (auto r : rs)  // Для каждой r 
 		{
-			map<string, double> h1Counters;  // Счетчики H1
+			map<string, FPFN> h1Counters;  // Счетчики H1
 
 			for (int i = 0; i < cicles[l] && i * l < (int)text.size() - l; i++)  // Циклы 10000 и 1000
 			{
 				copy(text.begin() + (long long)i * l, text.begin() + ((long long)i + 1) * l, part.begin());
-				string part_open = part;
+
+				auto criterion20ResultLetters = criterion20(part, letterCounters, 2);
+				h1Counters["2.0"].l1fp += criterion20ResultLetters.h1;
+				auto criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+				h1Counters["2.0"].l2fp += criterion20ResultBigrams.h1;
+				auto criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+				h1Counters["2.0"].l2fpwi += criterion20ResultBigrams.h1;
+
+				auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+				h1Counters["2.1"].l1fp += criterion21ResultLetters.h1;
+				auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+				h1Counters["2.1"].l2fp += criterion21ResultBigrams.h1;
+				auto criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+				h1Counters["2.1"].l2fpwi += criterion21ResultBigrams.h1;
+
+				auto criterion22ResultLetters = criterion22(part, letterCounters, 2);
+				h1Counters["2.2"].l1fp += criterion22ResultLetters.h1;
+				auto criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+				h1Counters["2.2"].l2fp += criterion22ResultBigrams.h1;
+				auto criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+				h1Counters["2.2"].l2fpwi += criterion22ResultBigrams.h1;
+
+				auto criterion23ResultLetters = criterion23(part, letterCounters, 2);
+				h1Counters["2.3"].l1fp += criterion23ResultLetters.h1;
+				auto criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+				h1Counters["2.3"].l2fp += criterion23ResultBigrams.h1;
+				auto criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+				h1Counters["2.3"].l2fpwi += criterion23ResultBigrams.h1;
+
+				auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+				h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
+				auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+				h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
+				auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+				h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
+
+				for (auto criterion50Data : Criterion50Datas)
+				{
+					if (criterion50Data.first.L == l)
+					{
+						if (criterion50Data.first.l == 1)
+						{
+							auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+							h1Counters[criterion50Data.first.name].l1fp += criterion50ResultLetters.h1;
+						}
+						else if (criterion50Data.first.l == 2)
+						{
+							auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+							h1Counters[criterion50Data.first.name].l2fp += criterion50ResultBigrams.h1;
+							auto criterion50ResultBigramsWithIntersitions = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+							h1Counters[criterion50Data.first.name].l2fpwi += criterion50ResultBigramsWithIntersitions.h1;
+						}
+					}
+				}
+
 				vigener(part, r);
-				// Посчет критериев (ОТ)
-				auto criterion20ResultLetters_o = criterion20(part_open, letterCounters, 5);
-				h1Counters["2.0.fp1_o"] += criterion20ResultLetters_o.h1;
-				auto criterion20ResultBigrams_o = criterion20(part_open, bigramCounters, 5);
-				h1Counters["2.0.fp2_o"] += criterion20ResultBigrams_o.h1;
 
-				auto criterion21ResultLetters_o = criterion21(part_open, letterCounters, 5, 2);
-				h1Counters["2.1.fp1_o"] += criterion21ResultLetters_o.h1;
-				auto criterion21ResultBigrams_o = criterion21(part_open, bigramCounters, 5, 2);
-				h1Counters["2.1.fp2_o"] += criterion21ResultBigrams_o.h1;
+				// Подсчет критериев
+				criterion20ResultLetters = criterion20(part, letterCounters, 2);
+				h1Counters["2.0"].l1fn += !criterion20ResultLetters.h1;
+				criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+				h1Counters["2.0"].l2fn += !criterion20ResultBigrams.h1;
+				criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+				h1Counters["2.0"].l2fnwi += !criterion20ResultBigrams.h1;
 
-				auto criterion22ResultLetters_o = criterion22(part_open, letterCounters, 5);
-				h1Counters["2.2.fp1_o"] += criterion22ResultLetters_o.h1;
-				auto criterion22ResultBigrams_o = criterion22(part_open, bigramCounters, 5);
-				h1Counters["2.2.fp2_o"] += criterion22ResultBigrams_o.h1;
+				criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+				h1Counters["2.1"].l1fn += !criterion21ResultLetters.h1;
+				criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+				h1Counters["2.1"].l2fn += !criterion21ResultBigrams.h1;
+				criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+				h1Counters["2.1"].l2fnwi += !criterion21ResultBigrams.h1;
 
-				auto criterion23ResultLetters_o = criterion23(part_open, letterCounters, 5);
-				h1Counters["2.3.fp1_o"] += criterion23ResultLetters_o.h1;
-				auto criterion23ResultBigrams_o = criterion23(part_open, bigramCounters, 5);
-				h1Counters["2.3.fp2_o"] += criterion23ResultBigrams_o.h1;
+				criterion22ResultLetters = criterion22(part, letterCounters, 2);
+				h1Counters["2.2"].l1fn += !criterion22ResultLetters.h1;
+				criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+				h1Counters["2.2"].l2fn += !criterion22ResultBigrams.h1;
+				criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+				h1Counters["2.2"].l2fnwi += !criterion22ResultBigrams.h1;
 
-				auto criterion40ResultLetters_o = criterion40(letterFrequency(part_open), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-				h1Counters["4.0.fp1_o"] += criterion40ResultLetters_o.h1;
-				auto criterion40ResultBigrams_o = criterion40(bigramFrequency(part_open), (int)part.size(), bigramCounters, (int)text.size(), 0.004);
-				h1Counters["4.0.fp2_o"] += criterion40ResultBigrams_o.h1;
+				criterion23ResultLetters = criterion23(part, letterCounters, 2);
+				h1Counters["2.3"].l1fn += !criterion23ResultLetters.h1;
+				criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+				h1Counters["2.3"].l2fn += !criterion23ResultBigrams.h1;
+				criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+				h1Counters["2.3"].l2fnwi += !criterion23ResultBigrams.h1;
 
-				if (l == 10) {
-					auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-					h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-					auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2); // хотя бы 2 пустых есть
-					h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-					auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3); // хотя бы 3 пустых есть
-					h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-					auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-					auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-					auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-				}
-				if (l == 100) {
-					auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1);
-					h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-					auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2);
-					h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-					auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3);
-					h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-					auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 43);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-					auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 91);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-					auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 188);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-				}
+				criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+				h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
+				criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+				h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
+				criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+				h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
 
-				if (l == 1000) {
-					auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-					h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-					auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-					h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-					auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 2);
-					h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-					auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 34);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-					auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 79);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-					auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 160);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-				}
-				if (l == 10000) {
-					auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-					h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-					auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-					h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-					auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 1);
-					h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-					auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-					auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 67);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-					auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 149);
-					h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-				}
-
-
-				// Посчет критериев (ШТ)
-				auto criterion20ResultLetters = criterion20(part, letterCounters, 5);
-				h1Counters["2.0.fp1"] += criterion20ResultLetters.h1;
-				auto criterion20ResultBigrams = criterion20(part, bigramCounters, 5);
-				h1Counters["2.0.fp2"] += criterion20ResultBigrams.h1;
-
-				auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 2);
-				h1Counters["2.1.fp1"] += criterion21ResultLetters.h1;
-				auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 2);
-				h1Counters["2.1.fp2"] += criterion21ResultBigrams.h1;
-
-				auto criterion22ResultLetters = criterion22(part, letterCounters, 5);
-				h1Counters["2.2.fp1"] += criterion22ResultLetters.h1;
-				auto criterion22ResultBigrams = criterion22(part, bigramCounters, 5);
-				h1Counters["2.2.fp2"] += criterion22ResultBigrams.h1;
-
-				auto criterion23ResultLetters = criterion23(part, letterCounters, 5);
-				h1Counters["2.3.fp1"] += criterion23ResultLetters.h1;
-				auto criterion23ResultBigrams = criterion23(part, bigramCounters, 5);
-				h1Counters["2.3.fp2"] += criterion23ResultBigrams.h1;
-
-				auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-				h1Counters["4.0.fp1"] += criterion40ResultLetters.h1;
-				auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.004);
-				h1Counters["4.0.fp2"] += criterion40ResultBigrams.h1;
-
-				if (l == 10) {
-					auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-					h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-					auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2); // хотя бы 2 пустых есть
-					h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-					auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3); // хотя бы 3 пустых есть
-					h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-					auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-					auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-					auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-				}
-				if (l == 100) {
-					auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1);
-					h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-					auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2);
-					h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-					auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3);
-					h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-					auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 43);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-					auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 91);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-					auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 188);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-				}
-
-				if (l == 1000) {
-					auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-					h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-					auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-					h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-					auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 2);
-					h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-					auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 34);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-					auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 79);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-					auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 160);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-				}
-				if (l == 10000) {
-					auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-					h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-					auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-					h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-					auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 1);
-					h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-					auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-					auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 67);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-					auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 149);
-					h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
+				for (auto criterion50Data : Criterion50Datas)
+				{
+					if (criterion50Data.first.L == l && criterion50Data.first.l == 1)
+					{
+						auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l1fn += !criterion50ResultLetters.h1;
+					}
+					if (criterion50Data.first.L == l && criterion50Data.first.l == 2)
+					{
+						auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fn += !criterion50ResultBigrams.h1;
+						criterion50ResultBigrams = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fnwi += !criterion50ResultBigrams.h1;
+					}
 				}
 
 				// Вывод критериев первого текста
@@ -506,81 +488,20 @@ int main()
 						cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion40ResultLetters.k
 							<< " <= " << criterion40ResultLetters.kl << endl;
 					}
-
-					/*cout << "\nКритерий 5.0:" << endl;
-					if (criterion50ResultLetters2.h1)
-					{
-						cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultLetters2.fempt
-							<< " < " << criterion50ResultLetters2.kempt << endl;
-					}
-					else if (criterion50ResultBigrams50.h1)
-					{
-						cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultBigrams50.fempt
-							<< " < " << criterion50ResultBigrams50.kempt << endl;
-					}
-					else
-					{
-						cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion50ResultLetters2.fempt
-							<< " >= " << criterion50ResultLetters2.kempt << endl;
-					}
-					cout << endl;*/
+					cout << endl;
 				}
 			}
 
 			// Подчет FP и FN
-			h1Counters["2.0.fp1"] /= (double)cicles[l];
-			h1Counters["2.1.fp1"] /= (double)cicles[l];
-			h1Counters["2.2.fp1"] /= (double)cicles[l];
-			h1Counters["2.3.fp1"] /= (double)cicles[l];
-			h1Counters["4.0.fp1"] /= (double)cicles[l];
-			h1Counters["5.0.fp1-2"] /= (double)cicles[l];
-			h1Counters["5.0.fp1-4"] /= (double)cicles[l];
-			h1Counters["5.0.fp1-6"] /= (double)cicles[l];
-
-			h1Counters["2.0.fn1"] = 1.0 - h1Counters["2.0.fp1"];
-			h1Counters["2.1.fn1"] = 1.0 - h1Counters["2.1.fp1"];
-			h1Counters["2.2.fn1"] = 1.0 - h1Counters["2.2.fp1"];
-			h1Counters["2.3.fn1"] = 1.0 - h1Counters["2.3.fp1"];
-			h1Counters["4.0.fn1"] = 1.0 - h1Counters["4.0.fp1"];
-			h1Counters["5.0.fn1-2"] = 1.0 - h1Counters["5.0.fp1-2"];
-			h1Counters["5.0.fn1-4"] = 1.0 - h1Counters["5.0.fp1-4"];
-			h1Counters["5.0.fn1-6"] = 1.0 - h1Counters["5.0.fp1-6"];
-
-			h1Counters["2.0.fp1"] = h1Counters["2.0.fp1_o"] / (double)cicles[l];
-			h1Counters["2.1.fp1"] = h1Counters["2.1.fp1_o"] / (double)cicles[l];
-			h1Counters["2.2.fp1"] = h1Counters["2.2.fp1_o"] / (double)cicles[l];
-			h1Counters["2.3.fp1"] = h1Counters["2.3.fp1_o"] / (double)cicles[l];
-			h1Counters["4.0.fp1"] = h1Counters["4.0.fp1_o"] / (double)cicles[l];
-			h1Counters["5.0.fp1-2"] = h1Counters["5.0.fp1-2_o"] / (double)cicles[l];
-			h1Counters["5.0.fp1-4"] = h1Counters["5.0.fp1-4_o"] / (double)cicles[l];
-			h1Counters["5.0.fp1-6"] = h1Counters["5.0.fp1-6_o"] / (double)cicles[l];
-
-			h1Counters["2.0.fp2"] /= (double)cicles[l];
-			h1Counters["2.1.fp2"] /= (double)cicles[l];
-			h1Counters["2.2.fp2"] /= (double)cicles[l];
-			h1Counters["2.3.fp2"] /= (double)cicles[l];
-			h1Counters["4.0.fp2"] /= (double)cicles[l];
-			h1Counters["5.0.fp2-50"] /= (double)cicles[l];
-			h1Counters["5.0.fp2-100"] /= (double)cicles[l];
-			h1Counters["5.0.fp2-200"] /= (double)cicles[l];
-
-			h1Counters["2.0.fn2"] = 1.0 - h1Counters["2.0.fp2"];
-			h1Counters["2.1.fn2"] = 1.0 - h1Counters["2.1.fp2"];
-			h1Counters["2.2.fn2"] = 1.0 - h1Counters["2.2.fp2"];
-			h1Counters["2.3.fn2"] = 1.0 - h1Counters["2.3.fp2"];
-			h1Counters["4.0.fn2"] = 1.0 - h1Counters["4.0.fp2"];
-			h1Counters["5.0.fn2-50"] = 1.0 - h1Counters["5.0.fp2-50"];
-			h1Counters["5.0.fn2-100"] = 1.0 - h1Counters["5.0.fp2-100"];
-			h1Counters["5.0.fn2-200"] = 1.0 - h1Counters["5.0.fp2-200"];
-
-			h1Counters["2.0.fp2"] = h1Counters["2.0.fp2_o"] / (double)cicles[l];
-			h1Counters["2.1.fp2"] = h1Counters["2.1.fp2_o"] / (double)cicles[l];
-			h1Counters["2.2.fp2"] = h1Counters["2.2.fp2_o"] / (double)cicles[l];
-			h1Counters["2.3.fp2"] = h1Counters["2.3.fp2_o"] / (double)cicles[l];
-			h1Counters["4.0.fp2"] = h1Counters["4.0.fp2_o"] / (double)cicles[l];
-			h1Counters["5.0.fp2-50"] = h1Counters["5.0.fp2-50_o"] / (double)cicles[l];
-			h1Counters["5.0.fp2-100"] = h1Counters["5.0.fp2-100_o"] / (double)cicles[l];
-			h1Counters["5.0.fp2-200"] = h1Counters["5.0.fp2-200_o"] / (double)cicles[l];
+			for (auto& fnfp : h1Counters)
+			{
+				fnfp.second.l1fn /= 10000.0;
+				fnfp.second.l1fp /= 10000.0;
+				fnfp.second.l2fn /= 10000.0;
+				fnfp.second.l2fp /= 10000.0;
+				fnfp.second.l2fnwi /= 10000.0;
+				fnfp.second.l2fpwi /= 10000.0;
+			}
 
 			// Вывод таблиц критериев
 			printCriterionsTable(h1Counters, l, r, "шифра Виженера");
@@ -597,262 +518,200 @@ int main()
 	auto shannonFanoResult = shannonFano("filtered_text.txt", "ShannonFano_res.txt");
 	printCompressedTable(shannonFanoResult, "Шеннона-Фано");
 
-	// Подсчет структурного критерия
-	int structureCriterionH1DEFLATECounter = 0;
-	int structureCriterionH1GZipCounter = 0;
-	int structureCriterionH1HaffmanCounter = 0;
-	int structureCriterionH1ShannonFanoCounter = 0;
-
-	int structureCriterionH1DEFLATECounterTopen = 0;
-	int structureCriterionH1GZipCounterTopen = 0;
-	int structureCriterionH1HaffmanCounterTopen = 0;
-	int structureCriterionH1ShannonFanoCounterTopen = 0;
+	// Сжатие алгоритмом LZ77
+	auto lz77Result = lz77("filtered_text.txt", "LZ77_res.txt");
+	printCompressedTable(lz77Result, "LZ77");
 
 	int lenght = 10;
+	while(lenght <= 10000){
 	string randomText(lenght, ' ');
 	string damagedText(lenght, ' ');
-	for (int i = 0; i < 10000; i++)
+	string partN(lenght, ' ');
+	map<string, CompressionData> compressions;
+	for (int i = 0; i < cicles[lenght] && (i + 1) * lenght < text.size(); i++)
 	{
 		generateRandomText(randomText);
 		copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, damagedText.begin());
+		copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, partN.begin());
 
 		auto randomTextHaffmane = haffman(randomText);
-		auto randomTextShannonFano = shannonFano(randomText);
-		auto randomTextDEFLATE = deflate(randomText);
-		auto randomTextGZip = gzip(randomText);
-
-		auto TextHaffmane = haffman(damagedText);
-		auto TextShannonFano = shannonFano(damagedText);
-		auto TextDEFLATE = deflate(damagedText);
-		auto TextGZip = gzip(damagedText);
-
-		auto resultTopen = structureCriterion(TextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounterTopen += resultTopen.h1;
-
-		resultTopen = structureCriterion(TextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounterTopen += resultTopen.h1;
-
-		resultTopen = structureCriterion(TextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounterTopen += resultTopen.h1;
-
-		resultTopen = structureCriterion(TextGZip, randomTextGZip);
-		structureCriterionH1GZipCounterTopen += resultTopen.h1;
-
-		vigener(damagedText);
 		auto damagedTextHaffmane = haffman(damagedText);
+		auto partNTextHaffmane = haffman(partN);
+
+		auto randomTextShannonFano = shannonFano(randomText);
 		auto damagedTextShannonFano = shannonFano(damagedText);
+		auto partNTextShannonFano = shannonFano(partN);
+
+		auto randomTextDEFLATE = deflate(randomText);
 		auto damagedTextDEFLATE = deflate(damagedText);
+		auto partNTextDEFLATE = deflate(partN);
+
+		auto randomTextGZip = gzip(randomText);
 		auto damagedTextGZip = gzip(damagedText);
+		auto partNTextGZip = gzip(partN);
 
-		auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounter += result.h1;
+		auto randomTextLZ77 = lz77(randomText);
+		auto damagedTextLZ77 = lz77(damagedText);
+		auto partNTextLZ77 = lz77(partN);
 
-		result = structureCriterion(damagedTextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounter += result.h1;
+		auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
+		compressions["Huffman"].fp += result.h1;
+		result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
+		compressions["Huffman"].fn += !result.h1;
 
-		result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounter += result.h1;
+		result = structureCriterion(damagedTextShannonFano, randomTextShannonFano, 1.0);
+		compressions["ShannonFano"].fp += result.h1;
+		result = structureCriterion(randomTextShannonFano, partNTextShannonFano, 1.0);
+		compressions["ShannonFano"].fn += !result.h1;
 
-		result = structureCriterion(damagedTextGZip, randomTextGZip);
-		structureCriterionH1GZipCounter += result.h1;
+		result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE, 1.0);
+		compressions["DEFLATE"].fp += result.h1;
+		result = structureCriterion(randomTextDEFLATE, partNTextDEFLATE, 1.0);
+		compressions["DEFLATE"].fn += !result.h1;
+
+		result = structureCriterion(damagedTextGZip, randomTextGZip, 1.0);
+		compressions["GZip"].fp += result.h1;
+		result = structureCriterion(randomTextGZip, partNTextGZip, 1.0);
+		compressions["GZip"].fn += !result.h1;
+
+		result = structureCriterion(damagedTextLZ77, randomTextLZ77, 1.0);
+		compressions["LZ77"].fp += result.h1;
+		result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
+		compressions["LZ77"].fn += !result.h1;
 	}
 
-	map<string, double> compressions;
-
-	compressions["DEFLATE.FP"] = structureCriterionH1DEFLATECounterTopen / 10000.0;
-	compressions["DEFLATE.FN"] = 1.0 - structureCriterionH1DEFLATECounter / 10000.0;
-
-	compressions["GZip.FP"] = structureCriterionH1GZipCounterTopen / 10000.0;
-	compressions["GZip.FN"] = 1.0 - structureCriterionH1GZipCounter / 10000.0;
-
-	compressions["Huffman.FP"] = structureCriterionH1HaffmanCounterTopen / 10000.0;
-	compressions["Huffman.FN"] = 1.0 - structureCriterionH1HaffmanCounter / 10000.0;
-
-	compressions["ShannonFano.FP"] = structureCriterionH1ShannonFanoCounterTopen / 10000.0;
-	compressions["ShannonFano.FN"] = 1.0 - structureCriterionH1ShannonFanoCounter / 10000.0;
+	for (auto& value : compressions)
+	{
+		value.second.fp /= 10000.0;
+		value.second.fn /= 10000.0;
+	}
 
 	// Вывод структурного критерия
-	printCompressionTable(compressions, lenght, "Виженер");
-	printCompressionTable(compressions, lenght, "Виженер", criteriaPassingResultsFile);
+	printCompressionTable(compressions, lenght, cicles[lenght], "Виженер");
+	printCompressionTable(compressions, lenght, cicles[lenght], "Виженер", criteriaPassingResultsFile);
+	lenght = lenght * 10;
+	}
 
-	// Афинная подстановка (тоже самое только функция генерации текста отличается)
+	// Афинная подстановка
 
-	for (auto l : ls)
+	for (auto l : ls)  // Для каждой L
 	{
-		map<string, double> h1Counters;
+		string part(l, ' ');  // Строка длиной L
+		map<string, FPFN> h1Counters;  // Счетчики H1
 
-		for (int i = 0; i < cicles[l] && i * l < (int)text.size() - l; i++)
+		for (int i = 0; i < cicles[l] && i * l < (int)text.size() - l; i++)  // Циклы 10000 и 1000
 		{
-			auto part = text.substr(i * l, l);
-			string part_open = part;
+			copy(text.begin() + (long long)i * l, text.begin() + ((long long)i + 1) * l, part.begin());
+
+			auto criterion20ResultLetters = criterion20(part, letterCounters, 2);
+			h1Counters["2.0"].l1fp += criterion20ResultLetters.h1;
+			auto criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+			h1Counters["2.0"].l2fp += criterion20ResultBigrams.h1;
+			auto criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+			h1Counters["2.0"].l2fpwi += criterion20ResultBigrams.h1;
+
+			auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+			h1Counters["2.1"].l1fp += criterion21ResultLetters.h1;
+			auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+			h1Counters["2.1"].l2fp += criterion21ResultBigrams.h1;
+			auto criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+			h1Counters["2.1"].l2fpwi += criterion21ResultBigrams.h1;
+
+			auto criterion22ResultLetters = criterion22(part, letterCounters, 2);
+			h1Counters["2.2"].l1fp += criterion22ResultLetters.h1;
+			auto criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+			h1Counters["2.2"].l2fp += criterion22ResultBigrams.h1;
+			auto criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.2"].l2fpwi += criterion22ResultBigrams.h1;
+
+			auto criterion23ResultLetters = criterion23(part, letterCounters, 2);
+			h1Counters["2.3"].l1fp += criterion23ResultLetters.h1;
+			auto criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+			h1Counters["2.3"].l2fp += criterion23ResultBigrams.h1;
+			auto criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.3"].l2fpwi += criterion23ResultBigrams.h1;
+
+			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+			h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
+			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
+			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
+
+			for (auto criterion50Data : Criterion50Datas)
+			{
+				if (criterion50Data.first.L == l)
+				{
+					if (criterion50Data.first.l == 1)
+					{
+						auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l1fp += criterion50ResultLetters.h1;
+					}
+					else if (criterion50Data.first.l == 2)
+					{
+						auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fp += criterion50ResultBigrams.h1;
+						auto criterion50ResultBigramsWithIntersitions = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fpwi += criterion50ResultBigramsWithIntersitions.h1;
+					}
+				}
+			}
+
 			affineSubstitution(part);
-			// Посчет критериев (ОТ)
-			auto criterion20ResultLetters_o = criterion20(part_open, letterCounters, 5);
-			h1Counters["2.0.fp1_o"] += criterion20ResultLetters_o.h1;
-			auto criterion20ResultBigrams_o = criterion20(part_open, bigramCounters, 5);
-			h1Counters["2.0.fp2_o"] += criterion20ResultBigrams_o.h1;
 
-			auto criterion21ResultLetters_o = criterion21(part_open, letterCounters, 5, 2);
-			h1Counters["2.1.fp1_o"] += criterion21ResultLetters_o.h1;
-			auto criterion21ResultBigrams_o = criterion21(part_open, bigramCounters, 5, 2);
-			h1Counters["2.1.fp2_o"] += criterion21ResultBigrams_o.h1;
+			// Подсчет критериев
+			criterion20ResultLetters = criterion20(part, letterCounters, 2);
+			h1Counters["2.0"].l1fn += !criterion20ResultLetters.h1;
+			criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+			h1Counters["2.0"].l2fn += !criterion20ResultBigrams.h1;
+			criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+			h1Counters["2.0"].l2fnwi += !criterion20ResultBigrams.h1;
 
-			auto criterion22ResultLetters_o = criterion22(part_open, letterCounters, 5);
-			h1Counters["2.2.fp1_o"] += criterion22ResultLetters_o.h1;
-			auto criterion22ResultBigrams_o = criterion22(part_open, bigramCounters, 5);
-			h1Counters["2.2.fp2_o"] += criterion22ResultBigrams_o.h1;
+			criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+			h1Counters["2.1"].l1fn += !criterion21ResultLetters.h1;
+			criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+			h1Counters["2.1"].l2fn += !criterion21ResultBigrams.h1;
+			criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+			h1Counters["2.1"].l2fnwi += !criterion21ResultBigrams.h1;
 
-			auto criterion23ResultLetters_o = criterion23(part_open, letterCounters, 5);
-			h1Counters["2.3.fp1_o"] += criterion23ResultLetters_o.h1;
-			auto criterion23ResultBigrams_o = criterion23(part_open, bigramCounters, 5);
-			h1Counters["2.3.fp2_o"] += criterion23ResultBigrams_o.h1;
+			criterion22ResultLetters = criterion22(part, letterCounters, 2);
+			h1Counters["2.2"].l1fn += !criterion22ResultLetters.h1;
+			criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+			h1Counters["2.2"].l2fn += !criterion22ResultBigrams.h1;
+			criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.2"].l2fnwi += !criterion22ResultBigrams.h1;
 
-			auto criterion40ResultLetters_o = criterion40(letterFrequency(part_open), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp1_o"] += criterion40ResultLetters_o.h1;
-			auto criterion40ResultBigrams_o = criterion40(bigramFrequency(part_open), (int)part.size(), bigramCounters, (int)text.size(), 0.004);
-			h1Counters["4.0.fp2_o"] += criterion40ResultBigrams_o.h1;
+			criterion23ResultLetters = criterion23(part, letterCounters, 2);
+			h1Counters["2.3"].l1fn += !criterion23ResultLetters.h1;
+			criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+			h1Counters["2.3"].l2fn += !criterion23ResultBigrams.h1;
+			criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.3"].l2fnwi += !criterion23ResultBigrams.h1;
 
-			if (l == 10) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2); // хотя бы 2 пустых есть
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3); // хотя бы 3 пустых есть
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-			if (l == 100) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1);
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 43);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 91);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 188);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
+			criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+			h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
+			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
+			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
+
+			for (auto criterion50Data : Criterion50Datas)
+			{
+				if (criterion50Data.first.L == l && criterion50Data.first.l == 1)
+				{
+					auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l1fn += !criterion50ResultLetters.h1;
+				}
+				if (criterion50Data.first.L == l && criterion50Data.first.l == 2)
+				{
+					auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l2fn += !criterion50ResultBigrams.h1;
+					criterion50ResultBigrams = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l2fnwi += !criterion50ResultBigrams.h1;
+				}
 			}
 
-			if (l == 1000) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 2);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 34);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 79);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 160);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-			if (l == 10000) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 1);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 67);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 149);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-
-			auto criterion20ResultLetters = criterion20(part, letterCounters, 5);
-			h1Counters["2.0.fp1"] += criterion20ResultLetters.h1;
-			auto criterion20ResultBigrams = criterion20(part, bigramCounters, 5);
-			h1Counters["2.0.fp2"] += criterion20ResultBigrams.h1;
-
-			auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 2);
-			h1Counters["2.1.fp1"] += criterion21ResultLetters.h1;
-			auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 2);
-			h1Counters["2.1.fp2"] += criterion21ResultBigrams.h1;
-
-			auto criterion22ResultLetters = criterion22(part, letterCounters, (int)text.size(), 5);
-			h1Counters["2.2.fp1"] += criterion22ResultLetters.h1;
-			auto criterion22ResultBigrams = criterion22(part, bigramCounters, (int)text.size(), 5);
-			h1Counters["2.2.fp2"] += criterion22ResultBigrams.h1;
-
-			auto criterion23ResultLetters = criterion23(part, letterCounters, 5);
-			h1Counters["2.3.fp1"] += criterion23ResultLetters.h1;
-			auto criterion23ResultBigrams = criterion23(part, bigramCounters, 5);
-			h1Counters["2.3.fp2"] += criterion23ResultBigrams.h1;
-
-			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp1"] += criterion40ResultLetters.h1;
-			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp2"] += criterion40ResultBigrams.h1;
-
-			if (l == 10) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2); // хотя бы 2 пустых есть
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3); // хотя бы 3 пустых есть
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-			if (l == 100) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1);
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 43);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 91);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 188);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-
-			if (l == 1000) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 2);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 34);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 79);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 160);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-			if (l == 10000) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 1);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 67);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 149);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-
+			// Вывод критериев первого текста
 			if (i == 0 && l == 10)
 			{
 				cout << "\nКритерий 2.0:" << endl;
@@ -938,333 +797,216 @@ int main()
 					cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion40ResultLetters.k
 						<< " <= " << criterion40ResultLetters.kl << endl;
 				}
-
-				/*cout << "\nКритерий 5.0:" << endl;
-				if (criterion50ResultLetters2.h1)
-				{
-					cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultLetters2.fempt
-						<< " < " << criterion50ResultLetters2.kempt << endl;
-				}
-				else if (criterion50ResultBigrams50.h1)
-				{
-					cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultBigrams50.fempt
-						<< " < " << criterion50ResultBigrams50.kempt << endl;
-				}
-				else
-				{
-					cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion50ResultLetters2.fempt
-						<< " >= " << criterion50ResultLetters2.kempt << endl;
-				}
-				cout << endl;*/
+				cout << endl;
 			}
 		}
 
 		// Подчет FP и FN
-		h1Counters["2.0.fp1"] /= (double)cicles[l];
-		h1Counters["2.1.fp1"] /= (double)cicles[l];
-		h1Counters["2.2.fp1"] /= (double)cicles[l];
-		h1Counters["2.3.fp1"] /= (double)cicles[l];
-		h1Counters["4.0.fp1"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-2"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-4"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-6"] /= (double)cicles[l];
+		for (auto& fnfp : h1Counters)
+		{
+			fnfp.second.l1fn /= 10000.0;
+			fnfp.second.l1fp /= 10000.0;
+			fnfp.second.l2fn /= 10000.0;
+			fnfp.second.l2fp /= 10000.0;
+			fnfp.second.l2fnwi /= 10000.0;
+			fnfp.second.l2fpwi /= 10000.0;
+		}
 
-		h1Counters["2.0.fn1"] = 1.0 - h1Counters["2.0.fp1"];
-		h1Counters["2.1.fn1"] = 1.0 - h1Counters["2.1.fp1"];
-		h1Counters["2.2.fn1"] = 1.0 - h1Counters["2.2.fp1"];
-		h1Counters["2.3.fn1"] = 1.0 - h1Counters["2.3.fp1"];
-		h1Counters["4.0.fn1"] = 1.0 - h1Counters["4.0.fp1"];
-		h1Counters["5.0.fn1-2"] = 1.0 - h1Counters["5.0.fp1-2"];
-		h1Counters["5.0.fn1-4"] = 1.0 - h1Counters["5.0.fp1-4"];
-		h1Counters["5.0.fn1-6"] = 1.0 - h1Counters["5.0.fp1-6"];
-
-		h1Counters["2.0.fp1"] = h1Counters["2.0.fp1_o"] / (double)cicles[l];
-		h1Counters["2.1.fp1"] = h1Counters["2.1.fp1_o"] / (double)cicles[l];
-		h1Counters["2.2.fp1"] = h1Counters["2.2.fp1_o"] / (double)cicles[l];
-		h1Counters["2.3.fp1"] = h1Counters["2.3.fp1_o"] / (double)cicles[l];
-		h1Counters["4.0.fp1"] = h1Counters["4.0.fp1_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-2"] = h1Counters["5.0.fp1-2_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-4"] = h1Counters["5.0.fp1-4_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-6"] = h1Counters["5.0.fp1-6_o"] / (double)cicles[l];
-
-		h1Counters["2.0.fp2"] /= (double)cicles[l];
-		h1Counters["2.1.fp2"] /= (double)cicles[l];
-		h1Counters["2.2.fp2"] /= (double)cicles[l];
-		h1Counters["2.3.fp2"] /= (double)cicles[l];
-		h1Counters["4.0.fp2"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-50"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-100"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-200"] /= (double)cicles[l];
-
-		h1Counters["2.0.fn2"] = 1.0 - h1Counters["2.0.fp2"];
-		h1Counters["2.1.fn2"] = 1.0 - h1Counters["2.1.fp2"];
-		h1Counters["2.2.fn2"] = 1.0 - h1Counters["2.2.fp2"];
-		h1Counters["2.3.fn2"] = 1.0 - h1Counters["2.3.fp2"];
-		h1Counters["4.0.fn2"] = 1.0 - h1Counters["4.0.fp2"];
-		h1Counters["5.0.fn2-50"] = 1.0 - h1Counters["5.0.fp2-50"];
-		h1Counters["5.0.fn2-100"] = 1.0 - h1Counters["5.0.fp2-100"];
-		h1Counters["5.0.fn2-200"] = 1.0 - h1Counters["5.0.fp2-200"];
-
-		h1Counters["2.0.fp2"] = h1Counters["2.0.fp2_o"] / (double)cicles[l];
-		h1Counters["2.1.fp2"] = h1Counters["2.1.fp2_o"] / (double)cicles[l];
-		h1Counters["2.2.fp2"] = h1Counters["2.2.fp2_o"] / (double)cicles[l];
-		h1Counters["2.3.fp2"] = h1Counters["2.3.fp2_o"] / (double)cicles[l];
-		h1Counters["4.0.fp2"] = h1Counters["4.0.fp2_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-50"] = h1Counters["5.0.fp2-50_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-100"] = h1Counters["5.0.fp2-100_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-200"] = h1Counters["5.0.fp2-200_o"] / (double)cicles[l];
-
-		printCriterionsTable(h1Counters, l, "афинной постановки");
-		printCriterionsTable(h1Counters, l, "афинной постановки", criteriaPassingResultsFile);
+		// Вывод таблиц критериев
+		printCriterionsTable(h1Counters, l, "афинной подстановки");
+		printCriterionsTable(h1Counters, l, "афинной подстановки", criteriaPassingResultsFile);
 	}
-
-	// Подсчет структурного критерия
-	structureCriterionH1DEFLATECounter = 0;
-	structureCriterionH1GZipCounter = 0;
-	structureCriterionH1HaffmanCounter = 0;
-	structureCriterionH1ShannonFanoCounter = 0;
+	cout << endl;
 
 	lenght = 10;
-	for (int i = 0; i < 10000; i++)
-	{
-		generateRandomText(randomText);
-		copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, damagedText.begin());
+	while (lenght <= 10000) {
+		string randomText(lenght, ' ');
+		string damagedText(lenght, ' ');
+		string partN(lenght, ' ');
+		map<string, CompressionData> compressions;
+		for (int i = 0; i < cicles[lenght] && (i + 1) * lenght < text.size(); i++)
+		{
+			generateRandomText(randomText);
+			copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, damagedText.begin());
+			affineSubstitution(damagedText);
+			copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, partN.begin());
 
-		auto randomTextHaffmane = haffman(randomText);
-		auto randomTextShannonFano = shannonFano(randomText);
-		auto randomTextDEFLATE = deflate(randomText);
-		auto randomTextGZip = gzip(randomText);
+			auto randomTextHaffmane = haffman(randomText);
+			auto damagedTextHaffmane = haffman(damagedText);
+			auto partNTextHaffmane = haffman(partN);
 
-		auto TextHaffmane = haffman(damagedText);
-		auto TextShannonFano = shannonFano(damagedText);
-		auto TextDEFLATE = deflate(damagedText);
-		auto TextGZip = gzip(damagedText);
+			auto randomTextShannonFano = shannonFano(randomText);
+			auto damagedTextShannonFano = shannonFano(damagedText);
+			auto partNTextShannonFano = shannonFano(partN);
 
-		auto resultTopen = structureCriterion(TextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounterTopen += resultTopen.h1;
+			auto randomTextDEFLATE = deflate(randomText);
+			auto damagedTextDEFLATE = deflate(damagedText);
+			auto partNTextDEFLATE = deflate(partN);
 
-		resultTopen = structureCriterion(TextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounterTopen += resultTopen.h1;
+			auto randomTextGZip = gzip(randomText);
+			auto damagedTextGZip = gzip(damagedText);
+			auto partNTextGZip = gzip(partN);
 
-		resultTopen = structureCriterion(TextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounterTopen += resultTopen.h1;
+			auto randomTextLZ77 = lz77(randomText);
+			auto damagedTextLZ77 = lz77(damagedText);
+			auto partNTextLZ77 = lz77(partN);
 
-		resultTopen = structureCriterion(TextGZip, randomTextGZip);
-		structureCriterionH1GZipCounterTopen += resultTopen.h1;
+			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
+			compressions["Huffman"].fp += result.h1;
+			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
+			compressions["Huffman"].fn += result.h1;
 
-		affineSubstitution(damagedText);
+			result = structureCriterion(damagedTextShannonFano, randomTextShannonFano, 1.0);
+			compressions["ShannonFano"].fp += result.h1;
+			result = structureCriterion(randomTextShannonFano, partNTextShannonFano, 1.0);
+			compressions["ShannonFano"].fn += result.h1;
 
-		auto damagedTextHaffmane = haffman(damagedText);
-		auto damagedTextShannonFano = shannonFano(damagedText);
-		auto damagedTextDEFLATE = deflate(damagedText);
-		auto damagedTextGZip = gzip(damagedText);
+			result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE, 1.0);
+			compressions["DEFLATE"].fp += result.h1;
+			result = structureCriterion(randomTextDEFLATE, partNTextDEFLATE, 1.0);
+			compressions["DEFLATE"].fn += result.h1;
 
-		auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounter += result.h1;
+			result = structureCriterion(damagedTextGZip, randomTextGZip, 1.0);
+			compressions["GZip"].fp += result.h1;
+			result = structureCriterion(randomTextGZip, partNTextGZip, 1.0);
+			compressions["GZip"].fn += result.h1;
 
-		result = structureCriterion(damagedTextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounter += result.h1;
+			result = structureCriterion(damagedTextLZ77, randomTextLZ77, 1.0);
+			compressions["LZ77"].fp += result.h1;
+			result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
+			compressions["LZ77"].fn += result.h1;
+		}
 
-		result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounter += result.h1;
+		for (auto& value : compressions)
+		{
+			value.second.fp /= 10000.0;
+			value.second.fn /= 10000.0;
+		}
 
-		result = structureCriterion(damagedTextGZip, randomTextGZip);
-		structureCriterionH1GZipCounter += result.h1;
+		// Вывод структурного критерия
+		printCompressionTable(compressions, lenght, cicles[lenght], "Афинная подстановка");
+		printCompressionTable(compressions, lenght, cicles[lenght], "Афинная подстановка", criteriaPassingResultsFile);
+		lenght = lenght * 10;
 	}
 
-	compressions["DEFLATE.FP"] = structureCriterionH1DEFLATECounterTopen / 10000.0;
-	compressions["DEFLATE.FN"] = 1.0 - structureCriterionH1DEFLATECounter / 10000.0;
-
-	compressions["GZip.FP"] = structureCriterionH1GZipCounterTopen / 10000.0;
-	compressions["GZip.FN"] = 1.0 - structureCriterionH1GZipCounter / 10000.0;
-
-	compressions["Huffman.FP"] = structureCriterionH1HaffmanCounterTopen / 10000.0;
-	compressions["Huffman.FN"] = 1.0 - structureCriterionH1HaffmanCounter / 10000.0;
-
-	compressions["ShannonFano.FP"] = structureCriterionH1ShannonFanoCounterTopen / 10000.0;
-	compressions["ShannonFano.FN"] = 1.0 - structureCriterionH1ShannonFanoCounter / 10000.0;
-
-	// Вывод структурного критерия
-	printCompressionTable(compressions, lenght, "Афинная подстановка");
-	printCompressionTable(compressions, lenght, "Афинная подстановка", criteriaPassingResultsFile);
-
-	// Равномерное заполнение (тоже самое только функция генерации текста отличается)
-
-	for (auto l : ls)
+	for (auto l : ls)  // Для каждой L
 	{
-		map<string, double> h1Counters;
-		string part(l, ' ');
-		for (int i = 0; i < cicles[l]; i++)
+		string part(l, ' ');  // Строка длиной L
+		map<string, FPFN> h1Counters;  // Счетчики H1
+
+		for (int i = 0; i < cicles[l] && i * l < (int)text.size() - l; i++)  // Циклы 10000 и 1000
 		{
-			string part_open = part;
+			copy(text.begin() + (long long)i * l, text.begin() + ((long long)i + 1) * l, part.begin());
+
+			auto criterion20ResultLetters = criterion20(part, letterCounters, 2);
+			h1Counters["2.0"].l1fp += criterion20ResultLetters.h1;
+			auto criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+			h1Counters["2.0"].l2fp += criterion20ResultBigrams.h1;
+			auto criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+			h1Counters["2.0"].l2fpwi += criterion20ResultBigrams.h1;
+
+			auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+			h1Counters["2.1"].l1fp += criterion21ResultLetters.h1;
+			auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+			h1Counters["2.1"].l2fp += criterion21ResultBigrams.h1;
+			auto criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+			h1Counters["2.1"].l2fpwi += criterion21ResultBigrams.h1;
+
+			auto criterion22ResultLetters = criterion22(part, letterCounters, 2);
+			h1Counters["2.2"].l1fp += criterion22ResultLetters.h1;
+			auto criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+			h1Counters["2.2"].l2fp += criterion22ResultBigrams.h1;
+			auto criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.2"].l2fpwi += criterion22ResultBigrams.h1;
+
+			auto criterion23ResultLetters = criterion23(part, letterCounters, 2);
+			h1Counters["2.3"].l1fp += criterion23ResultLetters.h1;
+			auto criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+			h1Counters["2.3"].l2fp += criterion23ResultBigrams.h1;
+			auto criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.3"].l2fpwi += criterion23ResultBigrams.h1;
+
+			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+			h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
+			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
+			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
+
+			for (auto criterion50Data : Criterion50Datas)
+			{
+				if (criterion50Data.first.L == l)
+				{
+					if (criterion50Data.first.l == 1)
+					{
+						auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l1fp += criterion50ResultLetters.h1;
+					}
+					else if (criterion50Data.first.l == 2)
+					{
+						auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fp += criterion50ResultBigrams.h1;
+						auto criterion50ResultBigramsWithIntersitions = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fpwi += criterion50ResultBigramsWithIntersitions.h1;
+					}
+				}
+			}
+
 			uniformDistribution(part);
-			// Посчет критериев (ОТ)
-			auto criterion20ResultLetters_o = criterion20(part_open, letterCounters, 5);
-			h1Counters["2.0.fp1_o"] += criterion20ResultLetters_o.h1;
-			auto criterion20ResultBigrams_o = criterion20(part_open, bigramCounters, 5);
-			h1Counters["2.0.fp2_o"] += criterion20ResultBigrams_o.h1;
 
-			auto criterion21ResultLetters_o = criterion21(part_open, letterCounters, 5, 2);
-			h1Counters["2.1.fp1_o"] += criterion21ResultLetters_o.h1;
-			auto criterion21ResultBigrams_o = criterion21(part_open, bigramCounters, 5, 2);
-			h1Counters["2.1.fp2_o"] += criterion21ResultBigrams_o.h1;
+			// Подсчет критериев
+			criterion20ResultLetters = criterion20(part, letterCounters, 2);
+			h1Counters["2.0"].l1fn += !criterion20ResultLetters.h1;
+			criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+			h1Counters["2.0"].l2fn += !criterion20ResultBigrams.h1;
+			criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+			h1Counters["2.0"].l2fnwi += !criterion20ResultBigrams.h1;
 
-			auto criterion22ResultLetters_o = criterion22(part_open, letterCounters, 5);
-			h1Counters["2.2.fp1_o"] += criterion22ResultLetters_o.h1;
-			auto criterion22ResultBigrams_o = criterion22(part_open, bigramCounters, 5);
-			h1Counters["2.2.fp2_o"] += criterion22ResultBigrams_o.h1;
+			criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+			h1Counters["2.1"].l1fn += !criterion21ResultLetters.h1;
+			criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+			h1Counters["2.1"].l2fn += !criterion21ResultBigrams.h1;
+			criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+			h1Counters["2.1"].l2fnwi += !criterion21ResultBigrams.h1;
 
-			auto criterion23ResultLetters_o = criterion23(part_open, letterCounters, 5);
-			h1Counters["2.3.fp1_o"] += criterion23ResultLetters_o.h1;
-			auto criterion23ResultBigrams_o = criterion23(part_open, bigramCounters, 5);
-			h1Counters["2.3.fp2_o"] += criterion23ResultBigrams_o.h1;
+			criterion22ResultLetters = criterion22(part, letterCounters, 2);
+			h1Counters["2.2"].l1fn += !criterion22ResultLetters.h1;
+			criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+			h1Counters["2.2"].l2fn += !criterion22ResultBigrams.h1;
+			criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.2"].l2fnwi += !criterion22ResultBigrams.h1;
 
-			auto criterion40ResultLetters_o = criterion40(letterFrequency(part_open), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp1_o"] += criterion40ResultLetters_o.h1;
-			auto criterion40ResultBigrams_o = criterion40(bigramFrequency(part_open), (int)part.size(), bigramCounters, (int)text.size(), 0.004);
-			h1Counters["4.0.fp2_o"] += criterion40ResultBigrams_o.h1;
+			criterion23ResultLetters = criterion23(part, letterCounters, 2);
+			h1Counters["2.3"].l1fn += !criterion23ResultLetters.h1;
+			criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+			h1Counters["2.3"].l2fn += !criterion23ResultBigrams.h1;
+			criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.3"].l2fnwi += !criterion23ResultBigrams.h1;
 
-			if (l == 10) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2); // хотя бы 2 пустых есть
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3); // хотя бы 3 пустых есть
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-			if (l == 100) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1);
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 43);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 91);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 188);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
+			criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+			h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
+			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
+			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
+
+			for (auto criterion50Data : Criterion50Datas)
+			{
+				if (criterion50Data.first.L == l && criterion50Data.first.l == 1)
+				{
+					auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l1fn += !criterion50ResultLetters.h1;
+				}
+				if (criterion50Data.first.L == l && criterion50Data.first.l == 2)
+				{
+					auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l2fn += !criterion50ResultBigrams.h1;
+					criterion50ResultBigrams = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l2fnwi += !criterion50ResultBigrams.h1;
+				}
 			}
 
-			if (l == 1000) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 2);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 34);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 79);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 160);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-			if (l == 10000) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 1);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 67);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 149);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-
-			auto criterion20ResultLetters = criterion20(part, letterCounters, 5);
-			h1Counters["2.0.fp1"] += criterion20ResultLetters.h1;
-			auto criterion20ResultBigrams = criterion20(part, bigramCounters, 5);
-			h1Counters["2.0.fp2"] += criterion20ResultBigrams.h1;
-
-			auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 2);
-			h1Counters["2.1.fp1"] += criterion21ResultLetters.h1;
-			auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 2);
-			h1Counters["2.1.fp2"] += criterion21ResultBigrams.h1;
-
-			auto criterion22ResultLetters = criterion22(part, letterCounters, (int)text.size(), 5);
-			h1Counters["2.2.fp1"] += criterion22ResultLetters.h1;
-			auto criterion22ResultBigrams = criterion22(part, bigramCounters, (int)text.size(), 5);
-			h1Counters["2.2.fp2"] += criterion22ResultBigrams.h1;
-
-			auto criterion23ResultLetters = criterion23(part, letterCounters, 5);
-			h1Counters["2.3.fp1"] += criterion23ResultLetters.h1;
-			auto criterion23ResultBigrams = criterion23(part, bigramCounters, 5);
-			h1Counters["2.3.fp2"] += criterion23ResultBigrams.h1;
-
-			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp1"] += criterion40ResultLetters.h1;
-			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp2"] += criterion40ResultBigrams.h1;
-
-			if (l == 10) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2); // хотя бы 2 пустых есть
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3); // хотя бы 3 пустых есть
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-			if (l == 100) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1);
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 43);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 91);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 188);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-
-			if (l == 1000) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 2);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 34);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 79);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 160);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-			if (l == 10000) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 1);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 67);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 149);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-
+			// Вывод критериев первого текста
 			if (i == 0 && l == 10)
 			{
 				cout << "\nКритерий 2.0:" << endl;
@@ -1350,334 +1092,216 @@ int main()
 					cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion40ResultLetters.k
 						<< " <= " << criterion40ResultLetters.kl << endl;
 				}
-
-				/*cout << "\nКритерий 5.0:" << endl;
-				if (criterion50ResultLetters2.h1)
-				{
-					cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultLetters2.fempt
-						<< " < " << criterion50ResultLetters2.kempt << endl;
-				}
-				else if (criterion50ResultBigrams50.h1)
-				{
-					cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultBigrams50.fempt
-						<< " < " << criterion50ResultBigrams50.kempt << endl;
-				}
-				else
-				{
-					cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion50ResultLetters2.fempt
-						<< " >= " << criterion50ResultLetters2.kempt << endl;
-				}
-				cout << endl;*/
+				cout << endl;
 			}
 		}
 
 		// Подчет FP и FN
-		h1Counters["2.0.fp1"] /= (double)cicles[l];
-		h1Counters["2.1.fp1"] /= (double)cicles[l];
-		h1Counters["2.2.fp1"] /= (double)cicles[l];
-		h1Counters["2.3.fp1"] /= (double)cicles[l];
-		h1Counters["4.0.fp1"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-2"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-4"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-6"] /= (double)cicles[l];
+		for (auto& fnfp : h1Counters)
+		{
+			fnfp.second.l1fn /= 10000.0;
+			fnfp.second.l1fp /= 10000.0;
+			fnfp.second.l2fn /= 10000.0;
+			fnfp.second.l2fp /= 10000.0;
+			fnfp.second.l2fnwi /= 10000.0;
+			fnfp.second.l2fpwi /= 10000.0;
+		}
 
-		h1Counters["2.0.fn1"] = 1.0 - h1Counters["2.0.fp1"];
-		h1Counters["2.1.fn1"] = 1.0 - h1Counters["2.1.fp1"];
-		h1Counters["2.2.fn1"] = 1.0 - h1Counters["2.2.fp1"];
-		h1Counters["2.3.fn1"] = 1.0 - h1Counters["2.3.fp1"];
-		h1Counters["4.0.fn1"] = 1.0 - h1Counters["4.0.fp1"];
-		h1Counters["5.0.fn1-2"] = 1.0 - h1Counters["5.0.fp1-2"];
-		h1Counters["5.0.fn1-4"] = 1.0 - h1Counters["5.0.fp1-4"];
-		h1Counters["5.0.fn1-6"] = 1.0 - h1Counters["5.0.fp1-6"];
-
-		h1Counters["2.0.fp1"] = h1Counters["2.0.fp1_o"] / (double)cicles[l];
-		h1Counters["2.1.fp1"] = h1Counters["2.1.fp1_o"] / (double)cicles[l];
-		h1Counters["2.2.fp1"] = h1Counters["2.2.fp1_o"] / (double)cicles[l];
-		h1Counters["2.3.fp1"] = h1Counters["2.3.fp1_o"] / (double)cicles[l];
-		h1Counters["4.0.fp1"] = h1Counters["4.0.fp1_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-2"] = h1Counters["5.0.fp1-2_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-4"] = h1Counters["5.0.fp1-4_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-6"] = h1Counters["5.0.fp1-6_o"] / (double)cicles[l];
-
-		h1Counters["2.0.fp2"] /= (double)cicles[l];
-		h1Counters["2.1.fp2"] /= (double)cicles[l];
-		h1Counters["2.2.fp2"] /= (double)cicles[l];
-		h1Counters["2.3.fp2"] /= (double)cicles[l];
-		h1Counters["4.0.fp2"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-50"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-100"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-200"] /= (double)cicles[l];
-
-		h1Counters["2.0.fn2"] = 1.0 - h1Counters["2.0.fp2"];
-		h1Counters["2.1.fn2"] = 1.0 - h1Counters["2.1.fp2"];
-		h1Counters["2.2.fn2"] = 1.0 - h1Counters["2.2.fp2"];
-		h1Counters["2.3.fn2"] = 1.0 - h1Counters["2.3.fp2"];
-		h1Counters["4.0.fn2"] = 1.0 - h1Counters["4.0.fp2"];
-		h1Counters["5.0.fn2-50"] = 1.0 - h1Counters["5.0.fp2-50"];
-		h1Counters["5.0.fn2-100"] = 1.0 - h1Counters["5.0.fp2-100"];
-		h1Counters["5.0.fn2-200"] = 1.0 - h1Counters["5.0.fp2-200"];
-
-		h1Counters["2.0.fp2"] = h1Counters["2.0.fp2_o"] / (double)cicles[l];
-		h1Counters["2.1.fp2"] = h1Counters["2.1.fp2_o"] / (double)cicles[l];
-		h1Counters["2.2.fp2"] = h1Counters["2.2.fp2_o"] / (double)cicles[l];
-		h1Counters["2.3.fp2"] = h1Counters["2.3.fp2_o"] / (double)cicles[l];
-		h1Counters["4.0.fp2"] = h1Counters["4.0.fp2_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-50"] = h1Counters["5.0.fp2-50_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-100"] = h1Counters["5.0.fp2-100_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-200"] = h1Counters["5.0.fp2-200_o"] / (double)cicles[l];
-
-		printCriterionsTable(h1Counters, l, "равномерного распределения");
-		printCriterionsTable(h1Counters, l, "равномерного распределения", criteriaPassingResultsFile);
+		// Вывод таблиц критериев
+		printCriterionsTable(h1Counters, l, "раномерного заполднения");
+		printCriterionsTable(h1Counters, l, "раномерного заполднения", criteriaPassingResultsFile);
 	}
-
-	// Подсчет структурного критерия
-	structureCriterionH1DEFLATECounter = 0;
-	structureCriterionH1GZipCounter = 0;
-	structureCriterionH1HaffmanCounter = 0;
-	structureCriterionH1ShannonFanoCounter = 0;
+	cout << endl;
 
 	lenght = 10;
-	for (int i = 0; i < 10000; i++)
-	{
-		generateRandomText(randomText);
-		copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, damagedText.begin());
+	while (lenght <= 10000) {
+		string randomText(lenght, ' ');
+		string damagedText(lenght, ' ');
+		string partN(lenght, ' ');
+		map<string, CompressionData> compressions;
+		for (int i = 0; i < cicles[lenght] && (i + 1) * lenght < text.size(); i++)
+		{
+			generateRandomText(randomText);
+			copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, damagedText.begin());
+			uniformDistribution(damagedText);
+			copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, partN.begin());
 
-		auto randomTextHaffmane = haffman(randomText);
-		auto randomTextShannonFano = shannonFano(randomText);
-		auto randomTextDEFLATE = deflate(randomText);
-		auto randomTextGZip = gzip(randomText);
+			auto randomTextHaffmane = haffman(randomText);
+			auto damagedTextHaffmane = haffman(damagedText);
+			auto partNTextHaffmane = haffman(partN);
 
-		auto TextHaffmane = haffman(damagedText);
-		auto TextShannonFano = shannonFano(damagedText);
-		auto TextDEFLATE = deflate(damagedText);
-		auto TextGZip = gzip(damagedText);
+			auto randomTextShannonFano = shannonFano(randomText);
+			auto damagedTextShannonFano = shannonFano(damagedText);
+			auto partNTextShannonFano = shannonFano(partN);
 
-		auto resultTopen = structureCriterion(TextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounterTopen += resultTopen.h1;
+			auto randomTextDEFLATE = deflate(randomText);
+			auto damagedTextDEFLATE = deflate(damagedText);
+			auto partNTextDEFLATE = deflate(partN);
 
-		resultTopen = structureCriterion(TextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounterTopen += resultTopen.h1;
+			auto randomTextGZip = gzip(randomText);
+			auto damagedTextGZip = gzip(damagedText);
+			auto partNTextGZip = gzip(partN);
 
-		resultTopen = structureCriterion(TextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounterTopen += resultTopen.h1;
+			auto randomTextLZ77 = lz77(randomText);
+			auto damagedTextLZ77 = lz77(damagedText);
+			auto partNTextLZ77 = lz77(partN);
 
-		resultTopen = structureCriterion(TextGZip, randomTextGZip);
-		structureCriterionH1GZipCounterTopen += resultTopen.h1;
+			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
+			compressions["Huffman"].fp += result.h1;
+			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
+			compressions["Huffman"].fn += !result.h1;
 
-		uniformDistribution(damagedText);
+			result = structureCriterion(damagedTextShannonFano, randomTextShannonFano, 1.0);
+			compressions["ShannonFano"].fp += result.h1;
+			result = structureCriterion(randomTextShannonFano, partNTextShannonFano, 1.0);
+			compressions["ShannonFano"].fn += !result.h1;
 
-		auto damagedTextHaffmane = haffman(damagedText);
-		auto damagedTextShannonFano = shannonFano(damagedText);
-		auto damagedTextDEFLATE = deflate(damagedText);
-		auto damagedTextGZip = gzip(damagedText);
+			result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE, 1.0);
+			compressions["DEFLATE"].fp += result.h1;
+			result = structureCriterion(randomTextDEFLATE, partNTextDEFLATE, 1.0);
+			compressions["DEFLATE"].fn += !result.h1;
 
-		auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounter += result.h1;
+			result = structureCriterion(damagedTextGZip, randomTextGZip, 1.0);
+			compressions["GZip"].fp += result.h1;
+			result = structureCriterion(randomTextGZip, partNTextGZip, 1.0);
+			compressions["GZip"].fn += !result.h1;
 
-		result = structureCriterion(damagedTextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounter += result.h1;
+			result = structureCriterion(damagedTextLZ77, randomTextLZ77, 1.0);
+			compressions["LZ77"].fp += result.h1;
+			result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
+			compressions["LZ77"].fn += !result.h1;
+		}
 
-		result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounter += result.h1;
+		for (auto& value : compressions)
+		{
+			value.second.fp /= 10000.0;
+			value.second.fn /= 10000.0;
+		}
 
-		result = structureCriterion(damagedTextGZip, randomTextGZip);
-		structureCriterionH1GZipCounter += result.h1;
+		// Вывод структурного критерия
+		printCompressionTable(compressions, lenght, cicles[lenght], "Равномерное заполнение");
+		printCompressionTable(compressions, lenght, cicles[lenght], "Равномерное заполнение", criteriaPassingResultsFile);
+		lenght = lenght * 10;
 	}
 
-
-	compressions["DEFLATE.FP"] = structureCriterionH1DEFLATECounterTopen / 10000.0;
-	compressions["DEFLATE.FN"] = 1.0 - structureCriterionH1DEFLATECounter / 10000.0;
-
-	compressions["GZip.FP"] = structureCriterionH1GZipCounterTopen / 10000.0;
-	compressions["GZip.FN"] = 1.0 - structureCriterionH1GZipCounter / 10000.0;
-
-	compressions["Huffman.FP"] = structureCriterionH1HaffmanCounterTopen / 10000.0;
-	compressions["Huffman.FN"] = 1.0 - structureCriterionH1HaffmanCounter / 10000.0;
-
-	compressions["ShannonFano.FP"] = structureCriterionH1ShannonFanoCounterTopen / 10000.0;
-	compressions["ShannonFano.FN"] = 1.0 - structureCriterionH1ShannonFanoCounter / 10000.0;
-
-	// Вывод структурного критерия
-	printCompressionTable(compressions, lenght, "Равномерного распределение");
-	printCompressionTable(compressions, lenght, "Равномерного распределение", criteriaPassingResultsFile);
-
-	// Генерция текста на осно соотношения (тоже самое только функция генерации текста отличается)
-
-	for (auto l : ls)
+	for (auto l : ls)  // Для каждой L
 	{
-		map<string, double> h1Counters;
-		string part(l, ' ');
-		for (int i = 0; i < cicles[l]; i++)
+		string part(l, ' ');  // Строка длиной L
+		map<string, FPFN> h1Counters;  // Счетчики H1
+
+		for (int i = 0; i < cicles[l] && i * l < (int)text.size() - l; i++)  // Циклы 10000 и 1000
 		{
-			string part_open = part;
+			copy(text.begin() + (long long)i * l, text.begin() + ((long long)i + 1) * l, part.begin());
+
+			auto criterion20ResultLetters = criterion20(part, letterCounters, 2);
+			h1Counters["2.0"].l1fp += criterion20ResultLetters.h1;
+			auto criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+			h1Counters["2.0"].l2fp += criterion20ResultBigrams.h1;
+			auto criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+			h1Counters["2.0"].l2fpwi += criterion20ResultBigrams.h1;
+
+			auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+			h1Counters["2.1"].l1fp += criterion21ResultLetters.h1;
+			auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+			h1Counters["2.1"].l2fp += criterion21ResultBigrams.h1;
+			auto criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+			h1Counters["2.1"].l2fpwi += criterion21ResultBigrams.h1;
+
+			auto criterion22ResultLetters = criterion22(part, letterCounters, 2);
+			h1Counters["2.2"].l1fp += criterion22ResultLetters.h1;
+			auto criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+			h1Counters["2.2"].l2fp += criterion22ResultBigrams.h1;
+			auto criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.2"].l2fpwi += criterion22ResultBigrams.h1;
+
+			auto criterion23ResultLetters = criterion23(part, letterCounters, 2);
+			h1Counters["2.3"].l1fp += criterion23ResultLetters.h1;
+			auto criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+			h1Counters["2.3"].l2fp += criterion23ResultBigrams.h1;
+			auto criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.3"].l2fpwi += criterion23ResultBigrams.h1;
+
+			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+			h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
+			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
+			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
+
+			for (auto criterion50Data : Criterion50Datas)
+			{
+				if (criterion50Data.first.L == l)
+				{
+					if (criterion50Data.first.l == 1)
+					{
+						auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l1fp += criterion50ResultLetters.h1;
+					}
+					else if (criterion50Data.first.l == 2)
+					{
+						auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fp += criterion50ResultBigrams.h1;
+						auto criterion50ResultBigramsWithIntersitions = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+						h1Counters[criterion50Data.first.name].l2fpwi += criterion50ResultBigramsWithIntersitions.h1;
+					}
+				}
+			}
+
 			distribution(part);
-			// Посчет критериев (ОТ)
-			auto criterion20ResultLetters_o = criterion20(part_open, letterCounters, 5);
-			h1Counters["2.0.fp1_o"] += criterion20ResultLetters_o.h1;
-			auto criterion20ResultBigrams_o = criterion20(part_open, bigramCounters, 5);
-			h1Counters["2.0.fp2_o"] += criterion20ResultBigrams_o.h1;
 
-			auto criterion21ResultLetters_o = criterion21(part_open, letterCounters, 5, 2);
-			h1Counters["2.1.fp1_o"] += criterion21ResultLetters_o.h1;
-			auto criterion21ResultBigrams_o = criterion21(part_open, bigramCounters, 5, 2);
-			h1Counters["2.1.fp2_o"] += criterion21ResultBigrams_o.h1;
+			// Подсчет критериев
+			criterion20ResultLetters = criterion20(part, letterCounters, 2);
+			h1Counters["2.0"].l1fn += !criterion20ResultLetters.h1;
+			criterion20ResultBigrams = criterion20(part, bigramCounters, 1);
+			h1Counters["2.0"].l2fn += !criterion20ResultBigrams.h1;
+			criterion20ResultBigramsWithIntersection = criterion20(part, bigramWithIntersectionsCounters, 1);
+			h1Counters["2.0"].l2fnwi += !criterion20ResultBigrams.h1;
 
-			auto criterion22ResultLetters_o = criterion22(part_open, letterCounters, 5);
-			h1Counters["2.2.fp1_o"] += criterion22ResultLetters_o.h1;
-			auto criterion22ResultBigrams_o = criterion22(part_open, bigramCounters, 5);
-			h1Counters["2.2.fp2_o"] += criterion22ResultBigrams_o.h1;
+			criterion21ResultLetters = criterion21(part, letterCounters, 5, 1);
+			h1Counters["2.1"].l1fn += !criterion21ResultLetters.h1;
+			criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 1);
+			h1Counters["2.1"].l2fn += !criterion21ResultBigrams.h1;
+			criterion21ResultBigramsWithIntersection = criterion21(part, bigramWithIntersectionsCounters, 5, 2);
+			h1Counters["2.1"].l2fnwi += !criterion21ResultBigrams.h1;
 
-			auto criterion23ResultLetters_o = criterion23(part_open, letterCounters, 5);
-			h1Counters["2.3.fp1_o"] += criterion23ResultLetters_o.h1;
-			auto criterion23ResultBigrams_o = criterion23(part_open, bigramCounters, 5);
-			h1Counters["2.3.fp2_o"] += criterion23ResultBigrams_o.h1;
+			criterion22ResultLetters = criterion22(part, letterCounters, 2);
+			h1Counters["2.2"].l1fn += !criterion22ResultLetters.h1;
+			criterion22ResultBigrams = criterion22(part, bigramCounters, 1);
+			h1Counters["2.2"].l2fn += !criterion22ResultBigrams.h1;
+			criterion22ResultBigramsWithIntersection = criterion22(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.2"].l2fnwi += !criterion22ResultBigrams.h1;
 
-			auto criterion40ResultLetters_o = criterion40(letterFrequency(part_open), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp1_o"] += criterion40ResultLetters_o.h1;
-			auto criterion40ResultBigrams_o = criterion40(bigramFrequency(part_open), (int)part.size(), bigramCounters, (int)text.size(), 0.004);
-			h1Counters["4.0.fp2_o"] += criterion40ResultBigrams_o.h1;
+			criterion23ResultLetters = criterion23(part, letterCounters, 2);
+			h1Counters["2.3"].l1fn += !criterion23ResultLetters.h1;
+			criterion23ResultBigrams = criterion23(part, bigramCounters, 2);
+			h1Counters["2.3"].l2fn += !criterion23ResultBigrams.h1;
+			criterion23ResultBigramsWithIntersection = criterion23(part, bigramWithIntersectionsCounters, 2);
+			h1Counters["2.3"].l2fnwi += !criterion23ResultBigrams.h1;
 
-			if (l == 10) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2); // хотя бы 2 пустых есть
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3); // хотя бы 3 пустых есть
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-			if (l == 100) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1);
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 2);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 3);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 43);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 91);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 188);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
+			criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
+			h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
+			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
+			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
+
+			for (auto criterion50Data : Criterion50Datas)
+			{
+				if (criterion50Data.first.L == l && criterion50Data.first.l == 1)
+				{
+					auto criterion50ResultLetters = criterion50(part, letterCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l1fn += !criterion50ResultLetters.h1;
+				}
+				if (criterion50Data.first.L == l && criterion50Data.first.l == 2)
+				{
+					auto criterion50ResultBigrams = criterion50(part, bigramCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l2fn += !criterion50ResultBigrams.h1;
+					criterion50ResultBigrams = criterion50(part, bigramWithIntersectionsCounters, criterion50Data.first.j, criterion50Data.second);
+					h1Counters[criterion50Data.first.name].l2fnwi += !criterion50ResultBigrams.h1;
+				}
 			}
 
-			if (l == 1000) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 2);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 34);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 79);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 160);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-			if (l == 10000) {
-				auto criterion50ResultLetters2_o = criterion50(part_open, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1_o"] += criterion50ResultLetters2_o.h1;
-				auto criterion50ResultLetters4_o = criterion50(part_open, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1_o"] += criterion50ResultLetters4_o.h1;
-				auto criterion50ResultLetters6_o = criterion50(part_open, letterCounters, 6, 1);
-				h1Counters["5.0-6.fp1_o"] += criterion50ResultLetters6_o.h1;
-				auto criterion50ResultBigrams50_o = criterion50(part_open, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams50_o.h1;
-				auto criterion50ResultBigrams100_o = criterion50(part_open, bigramCounters, 100, 67);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams100_o.h1;
-				auto criterion50ResultBigrams200_o = criterion50(part_open, bigramCounters, 200, 149);
-				h1Counters["5.0.fp2_o"] += criterion50ResultBigrams200_o.h1;
-			}
-
-			auto criterion20ResultLetters = criterion20(part, letterCounters, 5);
-			h1Counters["2.0.fp1"] += criterion20ResultLetters.h1;
-			auto criterion20ResultBigrams = criterion20(part, bigramCounters, 5);
-			h1Counters["2.0.fp2"] += criterion20ResultBigrams.h1;
-
-			auto criterion21ResultLetters = criterion21(part, letterCounters, 5, 2);
-			h1Counters["2.1.fp1"] += criterion21ResultLetters.h1;
-			auto criterion21ResultBigrams = criterion21(part, bigramCounters, 5, 2);
-			h1Counters["2.1.fp2"] += criterion21ResultBigrams.h1;
-
-			auto criterion22ResultLetters = criterion22(part, letterCounters, (int)text.size(), 5);
-			h1Counters["2.2.fp1"] += criterion22ResultLetters.h1;
-			auto criterion22ResultBigrams = criterion22(part, bigramCounters, (int)text.size(), 5);
-			h1Counters["2.2.fp2"] += criterion22ResultBigrams.h1;
-
-			auto criterion23ResultLetters = criterion23(part, letterCounters, 5);
-			h1Counters["2.3.fp1"] += criterion23ResultLetters.h1;
-			auto criterion23ResultBigrams = criterion23(part, bigramCounters, 5);
-			h1Counters["2.3.fp2"] += criterion23ResultBigrams.h1;
-
-			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp1"] += criterion40ResultLetters.h1;
-			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.009);
-			h1Counters["4.0.fp2"] += criterion40ResultBigrams.h1;
-
-			if (l == 10) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // нет пустых ящиков, 2 редких буквы есть в последовательности
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2); // хотя бы 2 пустых есть
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3); // хотя бы 3 пустых есть
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 48); // если из 50, попалась 2-1=1, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 97); // если из 100, попалось 2, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 196); // если из 200, попалось 3, то случайный (тут длина маленькая, больше нельзя)
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-			if (l == 100) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1);
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 2);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 3);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 43);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 91);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 188);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-
-			if (l == 1000) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 2);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 34);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 79);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 160);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-			if (l == 10000) {
-				auto criterion50ResultLetters2 = criterion50(part, letterCounters, 2, 1); // пустых нет
-				h1Counters["5.0-2.fp1"] += criterion50ResultLetters2.h1;
-				auto criterion50ResultLetters4 = criterion50(part, letterCounters, 4, 1);
-				h1Counters["5.0-4.fp1"] += criterion50ResultLetters4.h1;
-				auto criterion50ResultLetters6 = criterion50(part, letterCounters, 6, 1);
-				h1Counters["5.0-6.fp1"] += criterion50ResultLetters6.h1;
-				auto criterion50ResultBigrams50 = criterion50(part, bigramCounters, 50, 20); // хотя бы 30 редких в последовательности есть
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams50.h1;
-				auto criterion50ResultBigrams100 = criterion50(part, bigramCounters, 100, 67);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams100.h1;
-				auto criterion50ResultBigrams200 = criterion50(part, bigramCounters, 200, 149);
-				h1Counters["5.0.fp2"] += criterion50ResultBigrams200.h1;
-			}
-
+			// Вывод критериев первого текста
 			if (i == 0 && l == 10)
 			{
 				cout << "\nКритерий 2.0:" << endl;
@@ -1763,162 +1387,104 @@ int main()
 					cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion40ResultLetters.k
 						<< " <= " << criterion40ResultLetters.kl << endl;
 				}
-
-				/*cout << "\nКритерий 5.0:" << endl;
-				if (criterion50ResultLetters2.h1)
-				{
-					cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultLetters2.fempt
-						<< " < " << criterion50ResultLetters2.kempt << endl;
-				}
-				else if (criterion50ResultBigrams50.h1)
-				{
-					cout << "Последовательность \"" << part << "\" случайна, потому что " << criterion50ResultBigrams50.fempt
-						<< " < " << criterion50ResultBigrams50.kempt << endl;
-				}
-				else
-				{
-					cout << "Последовательность \"" << part << "\" неслучайна, потому что " << criterion50ResultLetters2.fempt
-						<< " >= " << criterion50ResultLetters2.kempt << endl;
-				}
-				cout << endl;*/
+				cout << endl;
 			}
 		}
 
 		// Подчет FP и FN
-		h1Counters["2.0.fp1"] /= (double)cicles[l];
-		h1Counters["2.1.fp1"] /= (double)cicles[l];
-		h1Counters["2.2.fp1"] /= (double)cicles[l];
-		h1Counters["2.3.fp1"] /= (double)cicles[l];
-		h1Counters["4.0.fp1"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-2"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-4"] /= (double)cicles[l];
-		h1Counters["5.0.fp1-6"] /= (double)cicles[l];
+		for (auto& fnfp : h1Counters)
+		{
+			fnfp.second.l1fn /= 10000.0;
+			fnfp.second.l1fp /= 10000.0;
+			fnfp.second.l2fn /= 10000.0;
+			fnfp.second.l2fp /= 10000.0;
+			fnfp.second.l2fnwi /= 10000.0;
+			fnfp.second.l2fpwi /= 10000.0;
+		}
 
-		h1Counters["2.0.fn1"] = 1.0 - h1Counters["2.0.fp1"];
-		h1Counters["2.1.fn1"] = 1.0 - h1Counters["2.1.fp1"];
-		h1Counters["2.2.fn1"] = 1.0 - h1Counters["2.2.fp1"];
-		h1Counters["2.3.fn1"] = 1.0 - h1Counters["2.3.fp1"];
-		h1Counters["4.0.fn1"] = 1.0 - h1Counters["4.0.fp1"];
-		h1Counters["5.0.fn1-2"] = 1.0 - h1Counters["5.0.fp1-2"];
-		h1Counters["5.0.fn1-4"] = 1.0 - h1Counters["5.0.fp1-4"];
-		h1Counters["5.0.fn1-6"] = 1.0 - h1Counters["5.0.fp1-6"];
-
-		h1Counters["2.0.fp1"] = h1Counters["2.0.fp1_o"] / (double)cicles[l];
-		h1Counters["2.1.fp1"] = h1Counters["2.1.fp1_o"] / (double)cicles[l];
-		h1Counters["2.2.fp1"] = h1Counters["2.2.fp1_o"] / (double)cicles[l];
-		h1Counters["2.3.fp1"] = h1Counters["2.3.fp1_o"] / (double)cicles[l];
-		h1Counters["4.0.fp1"] = h1Counters["4.0.fp1_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-2"] = h1Counters["5.0.fp1-2_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-4"] = h1Counters["5.0.fp1-4_o"] / (double)cicles[l];
-		h1Counters["5.0.fp1-6"] = h1Counters["5.0.fp1-6_o"] / (double)cicles[l];
-
-		h1Counters["2.0.fp2"] /= (double)cicles[l];
-		h1Counters["2.1.fp2"] /= (double)cicles[l];
-		h1Counters["2.2.fp2"] /= (double)cicles[l];
-		h1Counters["2.3.fp2"] /= (double)cicles[l];
-		h1Counters["4.0.fp2"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-50"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-100"] /= (double)cicles[l];
-		h1Counters["5.0.fp2-200"] /= (double)cicles[l];
-
-		h1Counters["2.0.fn2"] = 1.0 - h1Counters["2.0.fp2"];
-		h1Counters["2.1.fn2"] = 1.0 - h1Counters["2.1.fp2"];
-		h1Counters["2.2.fn2"] = 1.0 - h1Counters["2.2.fp2"];
-		h1Counters["2.3.fn2"] = 1.0 - h1Counters["2.3.fp2"];
-		h1Counters["4.0.fn2"] = 1.0 - h1Counters["4.0.fp2"];
-		h1Counters["5.0.fn2-50"] = 1.0 - h1Counters["5.0.fp2-50"];
-		h1Counters["5.0.fn2-100"] = 1.0 - h1Counters["5.0.fp2-100"];
-		h1Counters["5.0.fn2-200"] = 1.0 - h1Counters["5.0.fp2-200"];
-
-		h1Counters["2.0.fp2"] = h1Counters["2.0.fp2_o"] / (double)cicles[l];
-		h1Counters["2.1.fp2"] = h1Counters["2.1.fp2_o"] / (double)cicles[l];
-		h1Counters["2.2.fp2"] = h1Counters["2.2.fp2_o"] / (double)cicles[l];
-		h1Counters["2.3.fp2"] = h1Counters["2.3.fp2_o"] / (double)cicles[l];
-		h1Counters["4.0.fp2"] = h1Counters["4.0.fp2_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-50"] = h1Counters["5.0.fp2-50_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-100"] = h1Counters["5.0.fp2-100_o"] / (double)cicles[l];
-		h1Counters["5.0.fp2-200"] = h1Counters["5.0.fp2-200_o"] / (double)cicles[l];
-
+		// Вывод таблиц критериев
 		printCriterionsTable(h1Counters, l, "соотношения");
 		printCriterionsTable(h1Counters, l, "соотношения", criteriaPassingResultsFile);
 	}
-
-	// Подсчет структурного критерия
-	structureCriterionH1DEFLATECounter = 0;
-	structureCriterionH1GZipCounter = 0;
-	structureCriterionH1HaffmanCounter = 0;
-	structureCriterionH1ShannonFanoCounter = 0;
+	cout << endl;
 
 	lenght = 10;
-	for (int i = 0; i < 10000; i++)
-	{
-		generateRandomText(randomText);
-		copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, damagedText.begin());
+	while (lenght <= 10000) {
+		string randomText(lenght, ' ');
+		string damagedText(lenght, ' ');
+		string partN(lenght, ' ');
+		map<string, CompressionData> compressions;
+		for (int i = 0; i < cicles[lenght] && (i + 1) * lenght < text.size(); i++)
+		{
+			generateRandomText(randomText);
+			copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, damagedText.begin());
+			distribution(damagedText);
+			copy(text.begin() + i * lenght, text.begin() + (i + 1) * lenght, partN.begin());
 
-		auto randomTextHaffmane = haffman(randomText);
-		auto randomTextShannonFano = shannonFano(randomText);
-		auto randomTextDEFLATE = deflate(randomText);
-		auto randomTextGZip = gzip(randomText);
+			auto randomTextHaffmane = haffman(randomText);
+			auto damagedTextHaffmane = haffman(damagedText);
+			auto partNTextHaffmane = haffman(partN);
 
-		auto TextHaffmane = haffman(damagedText);
-		auto TextShannonFano = shannonFano(damagedText);
-		auto TextDEFLATE = deflate(damagedText);
-		auto TextGZip = gzip(damagedText);
+			auto randomTextShannonFano = shannonFano(randomText);
+			auto damagedTextShannonFano = shannonFano(damagedText);
+			auto partNTextShannonFano = shannonFano(partN);
 
-		auto resultTopen = structureCriterion(TextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounterTopen += resultTopen.h1;
+			auto randomTextDEFLATE = deflate(randomText);
+			auto damagedTextDEFLATE = deflate(damagedText);
+			auto partNTextDEFLATE = deflate(partN);
 
-		resultTopen = structureCriterion(TextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounterTopen += resultTopen.h1;
+			auto randomTextGZip = gzip(randomText);
+			auto damagedTextGZip = gzip(damagedText);
+			auto partNTextGZip = gzip(partN);
 
-		resultTopen = structureCriterion(TextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounterTopen += resultTopen.h1;
+			auto randomTextLZ77 = lz77(randomText);
+			auto damagedTextLZ77 = lz77(damagedText);
+			auto partNTextLZ77 = lz77(partN);
 
-		resultTopen = structureCriterion(TextGZip, randomTextGZip);
-		structureCriterionH1GZipCounterTopen += resultTopen.h1;
+			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
+			compressions["Huffman"].fp += result.h1;
+			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
+			compressions["Huffman"].fn += !result.h1;
 
+			result = structureCriterion(damagedTextShannonFano, randomTextShannonFano, 1.0);
+			compressions["ShannonFano"].fp += result.h1;
+			result = structureCriterion(randomTextShannonFano, partNTextShannonFano, 1.0);
+			compressions["ShannonFano"].fn += !result.h1;
 
-		distribution(damagedText);
+			result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE, 1.0);
+			compressions["DEFLATE"].fp += result.h1;
+			result = structureCriterion(randomTextDEFLATE, partNTextDEFLATE, 1.0);
+			compressions["DEFLATE"].fn += !result.h1;
 
-		auto damagedTextHaffmane = haffman(damagedText);
-		auto damagedTextShannonFano = shannonFano(damagedText);
-		auto damagedTextDEFLATE = deflate(damagedText);
-		auto damagedTextGZip = gzip(damagedText);
+			result = structureCriterion(damagedTextGZip, randomTextGZip, 1.0);
+			compressions["GZip"].fp += result.h1;
+			result = structureCriterion(randomTextGZip, partNTextGZip, 1.0);
+			compressions["GZip"].fn += !result.h1;
 
-		auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane);
-		structureCriterionH1HaffmanCounter += result.h1;
+			result = structureCriterion(damagedTextLZ77, randomTextLZ77, 1.0);
+			compressions["LZ77"].fp += result.h1;
+			result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
+			compressions["LZ77"].fn += !result.h1;
+		}
 
-		result = structureCriterion(damagedTextShannonFano, randomTextShannonFano);
-		structureCriterionH1ShannonFanoCounter += result.h1;
+		for (auto& value : compressions)
+		{
+			value.second.fp /= 10000.0;
+			value.second.fn /= 10000.0;
+		}
 
-		result = structureCriterion(damagedTextDEFLATE, randomTextDEFLATE);
-		structureCriterionH1DEFLATECounter += result.h1;
-
-		result = structureCriterion(damagedTextGZip, randomTextGZip);
-		structureCriterionH1GZipCounter += result.h1;
+		// Вывод структурного критерия
+		printCompressionTable(compressions, lenght, cicles[lenght], "На основе соотношения");
+		printCompressionTable(compressions, lenght, cicles[lenght], "На основе соотношения", criteriaPassingResultsFile);
+		lenght = lenght * 10;
 	}
-
-
-	compressions["DEFLATE.FP"] = structureCriterionH1DEFLATECounterTopen / 10000.0;
-	compressions["DEFLATE.FN"] = 1.0 - structureCriterionH1DEFLATECounter / 10000.0;
-
-	compressions["GZip.FP"] = structureCriterionH1GZipCounterTopen / 10000.0;
-	compressions["GZip.FN"] = 1.0 - structureCriterionH1GZipCounter / 10000.0;
-
-	compressions["Huffman.FP"] = structureCriterionH1HaffmanCounterTopen / 10000.0;
-	compressions["Huffman.FN"] = 1.0 - structureCriterionH1HaffmanCounter / 10000.0;
-
-	compressions["ShannonFano.FP"] = structureCriterionH1ShannonFanoCounterTopen / 10000.0;
-	compressions["ShannonFano.FN"] = 1.0 - structureCriterionH1ShannonFanoCounter / 10000.0;
-
-	// Вывод структурного критерия
-	printCompressionTable(compressions, lenght, "Соотношение");
-	printCompressionTable(compressions, lenght, "Соотношение", criteriaPassingResultsFile);
 
 	criteriaPassingResultsFile.close();
 
 	// Генерация 10 текстов по 10000 символов и проверка 4.0 критериемы
 	vector<bool> creterion40Values;
+	string randomText(10, ' ');
+	generateRandomText(randomText);
 	string randomText100000(10000, ' ');
 	for (int i = 0; i < 10; i++)
 	{
@@ -1936,5 +1502,7 @@ int main()
 	}
 	printTask5Table(creterion40Values);
 
+	cin.get();
+	cin.get();
 	return 0;
 }
