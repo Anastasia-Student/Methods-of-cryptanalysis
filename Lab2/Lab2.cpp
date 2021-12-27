@@ -8,7 +8,7 @@
 #include "Deflate.h"
 #include "LZ77.h"
 #include "RLE.h"
-//#include "Arithmetic_compression.h"
+#include "Arithmetic_compression.h"
 
 #include <algorithm>
 #include <iostream>
@@ -571,6 +571,10 @@ int main()
 		auto damagedTextRLE_Bit = RLE_Bit(damagedText);
 		auto partNTextRLE_Bit = RLE_Bit(partN);
 
+		auto randomTextArithmeticCoding = arithmeticCoding(randomText, letterCounters);
+		auto damagedTextArithmeticCoding = arithmeticCoding(damagedText, letterCounters);
+		auto partNTextArithmeticCoding = arithmeticCoding(partN, letterCounters);
+
 		auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 		compressions["Huffman"].fp += result.h1;
 		result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -605,6 +609,11 @@ int main()
 		compressions["RLE_Bit"].fp += result.h1;
 		result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
 		compressions["RLE_Bit"].fn += !result.h1;
+
+		result = structureCriterion(damagedTextArithmeticCoding, randomTextArithmeticCoding, 1.0);
+		compressions["ArithmeticCoding"].fp += result.h1;
+		result = structureCriterion(randomTextArithmeticCoding, partNTextArithmeticCoding, 1.0);
+		compressions["ArithmeticCoding"].fn += !result.h1;
 	}
 
 	for (auto& value : compressions)
@@ -886,6 +895,10 @@ int main()
 			auto damagedTextRLE_Bit = RLE_Bit(damagedText);
 			auto partNTextRLE_Bit = RLE_Bit(partN);
 
+			auto randomTextArithmeticCoding = arithmeticCoding(randomText, letterCounters);
+			auto damagedTextArithmeticCoding = arithmeticCoding(damagedText, letterCounters);
+			auto partNTextArithmeticCoding = arithmeticCoding(partN, letterCounters);
+
 			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 			compressions["Huffman"].fp += result.h1;
 			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -920,6 +933,11 @@ int main()
 			compressions["RLE_Bit"].fp += result.h1;
 			result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
 			compressions["RLE_Bit"].fn += result.h1;
+
+			result = structureCriterion(damagedTextArithmeticCoding, randomTextArithmeticCoding, 1.0);
+			compressions["ArithmeticCoding"].fp += result.h1;
+			result = structureCriterion(randomTextArithmeticCoding, partNTextArithmeticCoding, 1.0);
+			compressions["ArithmeticCoding"].fn += !result.h1;
 		}
 
 		for (auto& value : compressions)
@@ -1199,6 +1217,10 @@ int main()
 			auto damagedTextRLE_Bit = RLE_Bit(damagedText);
 			auto partNTextRLE_Bit = RLE_Bit(partN);
 
+			auto randomTextArithmeticCoding = arithmeticCoding(randomText, letterCounters);
+			auto damagedTextArithmeticCoding = arithmeticCoding(damagedText, letterCounters);
+			auto partNTextArithmeticCoding = arithmeticCoding(partN, letterCounters);
+
 			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 			compressions["Huffman"].fp += result.h1;
 			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -1233,6 +1255,11 @@ int main()
 			compressions["RLE_Bit"].fp += result.h1;
 			result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
 			compressions["RLE_Bit"].fn += !result.h1;
+
+			result = structureCriterion(damagedTextArithmeticCoding, randomTextArithmeticCoding, 1.0);
+			compressions["ArithmeticCoding"].fp += result.h1;
+			result = structureCriterion(randomTextArithmeticCoding, partNTextArithmeticCoding, 1.0);
+			compressions["ArithmeticCoding"].fn += !result.h1;
 		}
 
 		for (auto& value : compressions)
@@ -1512,6 +1539,10 @@ int main()
 			auto damagedTextRLE_Bit = RLE_Bit(damagedText);
 			auto partNTextRLE_Bit = RLE_Bit(partN);
 
+			auto randomTextArithmeticCoding = arithmeticCoding(randomText, letterCounters);
+			auto damagedTextArithmeticCoding = arithmeticCoding(damagedText, letterCounters);
+			auto partNTextArithmeticCoding = arithmeticCoding(partN, letterCounters);
+
 			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 			compressions["Huffman"].fp += result.h1;
 			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -1546,6 +1577,11 @@ int main()
 			compressions["RLE_Bit"].fp += result.h1;
 			result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
 			compressions["RLE_Bit"].fn += !result.h1;
+
+			result = structureCriterion(damagedTextArithmeticCoding, randomTextArithmeticCoding, 1.0);
+			compressions["ArithmeticCoding"].fp += result.h1;
+			result = structureCriterion(randomTextArithmeticCoding, partNTextArithmeticCoding, 1.0);
+			compressions["ArithmeticCoding"].fn += !result.h1;
 		}
 
 		for (auto& value : compressions)
