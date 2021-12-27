@@ -7,11 +7,12 @@
 #include "GZip.h"
 #include "Deflate.h"
 #include "LZ77.h"
+#include "RLE.h"
+//#include "Arithmetic_compression.h"
 
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
-#include <functional>
 
 using namespace std;
 
@@ -51,7 +52,7 @@ void printBigramFrequencyHeader(const map<Bigram, Frequancy>& counters, size_t l
 		complianceIndex(counters, (int)lenght) << ", L = " << lenght << endl;
 }
 
-// Вывести частоты букв
+// Вывести частоты биграмм
 void printBigramFrequency(const map<Bigram, Frequancy>& counters, size_t lenght, ostream& stream = cout)
 {
 	printBigramFrequencyHeader(counters, lenght, stream);
@@ -164,7 +165,7 @@ void printCompressionTable(map<string, CompressionData> values, int lenght, int 
 	stream << "Результаты применения структурного критерия с разными алгоритмами сжатия(L = " << lenght <<
 		", N = " << n << ", вид искажения = " << type << "):" << endl;
 	stream << "----------------------------------------" << endl;
-	stream << "| Алгоритм сжатия  | FP       | FN     |" << endl;
+	stream << "| Алгоритм сжатия  | FP      | FN      |" << endl;
 	stream << "|--------------------------------------|" << endl;
 	for (auto value : values)
 	{
@@ -263,13 +264,13 @@ int main()
 	map<int, int> cicles = { {10, 10000}, {100, 10000}, {1000, 10000}, {10000, 1000} };  // Количество циклов для каждой L
 	map<Criterion50Data, int> Criterion50Datas =  // Значения для критерия 5.0
 	{
-		{{"5.0 2 50", 10, 2, 50}, 47}, {{"5.0 4 100", 10, 2, 100}, 95}, {{"5.0 6 200", 10, 2, 200}, 93},
+		{{"5.0 2 50", 10, 2, 50}, 49}, {{"5.0 4 100", 10, 2, 100}, 98}, {{"5.0 6 200", 10, 2, 200}, 98},
 
-		{{"5.0 2 50", 10, 1, 2}, 1},  {{"5.0 4 100", 10, 1, 4}, 2},   {{"5.0 6 200", 10, 1, 6}, 3},
+		{{"5.0 2 50", 10, 1, 2}, 2},  {{"5.0 4 100", 10, 1, 4}, 3},   {{"5.0 6 200", 10, 1, 6}, 4},
 
-		{{"5.0 2 50", 100, 2, 50}, 40}, {{"5.0 4 100", 100, 2, 100}, 60}, {{"5.0 6 200", 100, 2, 200}, 80},
+		{{"5.0 2 50", 100, 2, 50}, 45}, {{"5.0 4 100", 100, 2, 100}, 70}, {{"5.0 6 200", 100, 2, 200}, 90},
 
-		{{"5.0 2 50", 100, 1, 2}, 1},   {{"5.0 4 100", 100, 1, 4}, 2},    {{"5.0 6 200", 100, 1, 6}, 3},
+		{{"5.0 2 50", 100, 1, 2}, 2},   {{"5.0 4 100", 100, 1, 4}, 2},    {{"5.0 6 200", 100, 1, 6}, 5},
 
 		{{"5.0 2 50", 1000, 2, 50}, 30}, {{"5.0 4 100", 1000, 2, 100}, 50}, {{"5.0 6 200", 1000, 2, 200}, 70},
 
@@ -324,9 +325,9 @@ int main()
 
 				auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 				h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
-				auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+				auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 				h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
-				auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+				auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 				h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
 
 				for (auto criterion50Data : Criterion50Datas)
@@ -381,9 +382,9 @@ int main()
 
 				criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 				h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
-				criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+				criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 				h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
-				criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+				criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 				h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
 
 				for (auto criterion50Data : Criterion50Datas)
@@ -522,6 +523,14 @@ int main()
 	auto lz77Result = lz77("filtered_text.txt", "LZ77_res.txt");
 	printCompressedTable(lz77Result, "LZ77");
 
+	// Сжатие алгоритмом RLE
+	/*auto RLEResult = RLE("filtered_text.txt", "RLE_res.txt");
+	printCompressedTable(RLEResult, "RLE");
+
+	// Сжатие алгоритмом RLE_Bit
+	auto RLE_Bit_Result = RLE_Bit("filtered_text.txt", "RLE_Bit_res.txt");
+	printCompressedTable(RLE_Bit_Result, "RLE_bit");*/
+
 	int lenght = 10;
 	while(lenght <= 10000){
 	string randomText(lenght, ' ');
@@ -554,6 +563,14 @@ int main()
 		auto damagedTextLZ77 = lz77(damagedText);
 		auto partNTextLZ77 = lz77(partN);
 
+		auto randomTextRLE = RLE(randomText);
+		auto damagedTextRLE = RLE(damagedText);
+		auto partNTextRLE = RLE(partN);
+
+		auto randomTextRLE_Bit = RLE_Bit(randomText);
+		auto damagedTextRLE_Bit = RLE_Bit(damagedText);
+		auto partNTextRLE_Bit = RLE_Bit(partN);
+
 		auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 		compressions["Huffman"].fp += result.h1;
 		result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -578,6 +595,16 @@ int main()
 		compressions["LZ77"].fp += result.h1;
 		result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
 		compressions["LZ77"].fn += !result.h1;
+
+		result = structureCriterion(damagedTextRLE, randomTextRLE, 1.0);
+		compressions["RLE"].fp += result.h1;
+		result = structureCriterion(randomTextRLE, partNTextRLE, 1.0);
+		compressions["RLE"].fn += !result.h1;
+
+		result = structureCriterion(damagedTextRLE_Bit, randomTextRLE_Bit, 1.0);
+		compressions["RLE_Bit"].fp += result.h1;
+		result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
+		compressions["RLE_Bit"].fn += !result.h1;
 	}
 
 	for (auto& value : compressions)
@@ -633,9 +660,9 @@ int main()
 
 			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
-			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
-			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
 
 			for (auto criterion50Data : Criterion50Datas)
@@ -690,9 +717,9 @@ int main()
 
 			criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
-			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
-			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
 
 			for (auto criterion50Data : Criterion50Datas)
@@ -851,6 +878,14 @@ int main()
 			auto damagedTextLZ77 = lz77(damagedText);
 			auto partNTextLZ77 = lz77(partN);
 
+			auto randomTextRLE = RLE(randomText);
+			auto damagedTextRLE = RLE(damagedText);
+			auto partNTextRLE = RLE(partN);
+
+			auto randomTextRLE_Bit = RLE_Bit(randomText);
+			auto damagedTextRLE_Bit = RLE_Bit(damagedText);
+			auto partNTextRLE_Bit = RLE_Bit(partN);
+
 			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 			compressions["Huffman"].fp += result.h1;
 			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -875,6 +910,16 @@ int main()
 			compressions["LZ77"].fp += result.h1;
 			result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
 			compressions["LZ77"].fn += result.h1;
+
+			result = structureCriterion(damagedTextRLE, randomTextRLE, 1.0);
+			compressions["RLE"].fp += result.h1;
+			result = structureCriterion(randomTextRLE, partNTextRLE, 1.0);
+			compressions["RLE"].fn += result.h1;
+
+			result = structureCriterion(damagedTextRLE_Bit, randomTextRLE_Bit, 1.0);
+			compressions["RLE_Bit"].fp += result.h1;
+			result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
+			compressions["RLE_Bit"].fn += result.h1;
 		}
 
 		for (auto& value : compressions)
@@ -928,9 +973,9 @@ int main()
 
 			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
-			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
-			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
 
 			for (auto criterion50Data : Criterion50Datas)
@@ -985,9 +1030,9 @@ int main()
 
 			criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
-			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
-			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
 
 			for (auto criterion50Data : Criterion50Datas)
@@ -1146,6 +1191,14 @@ int main()
 			auto damagedTextLZ77 = lz77(damagedText);
 			auto partNTextLZ77 = lz77(partN);
 
+			auto randomTextRLE = RLE(randomText);
+			auto damagedTextRLE = RLE(damagedText);
+			auto partNTextRLE = RLE(partN);
+
+			auto randomTextRLE_Bit = RLE_Bit(randomText);
+			auto damagedTextRLE_Bit = RLE_Bit(damagedText);
+			auto partNTextRLE_Bit = RLE_Bit(partN);
+
 			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 			compressions["Huffman"].fp += result.h1;
 			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -1170,6 +1223,16 @@ int main()
 			compressions["LZ77"].fp += result.h1;
 			result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
 			compressions["LZ77"].fn += !result.h1;
+
+			result = structureCriterion(damagedTextRLE, randomTextRLE, 1.0);
+			compressions["RLE"].fp += result.h1;
+			result = structureCriterion(randomTextRLE, partNTextRLE, 1.0);
+			compressions["RLE"].fn += !result.h1;
+
+			result = structureCriterion(damagedTextRLE_Bit, randomTextRLE_Bit, 1.0);
+			compressions["RLE_Bit"].fp += result.h1;
+			result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
+			compressions["RLE_Bit"].fn += !result.h1;
 		}
 
 		for (auto& value : compressions)
@@ -1223,9 +1286,9 @@ int main()
 
 			auto criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l1fp += criterion40ResultLetters.h1;
-			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			auto criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fp += criterion40ResultBigrams.h1;
-			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			auto criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fpwi += criterion40ResultBigrams.h1;
 
 			for (auto criterion50Data : Criterion50Datas)
@@ -1280,9 +1343,9 @@ int main()
 
 			criterion40ResultLetters = criterion40(letterFrequency(part), (int)part.size(), letterCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l1fn += !criterion40ResultLetters.h1;
-			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.0005);
+			criterion40ResultBigrams = criterion40(bigramFrequency(part), (int)part.size(), bigramCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fn += !criterion40ResultBigrams.h1;
-			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.0005);
+			criterion40ResultBigramsWithIntersection = criterion40(bigramFrequency(part), (int)part.size(), bigramWithIntersectionsCounters, (int)text.size(), 0.05);
 			h1Counters["4.0"].l2fnwi += !criterion40ResultBigrams.h1;
 
 			for (auto criterion50Data : Criterion50Datas)
@@ -1441,6 +1504,14 @@ int main()
 			auto damagedTextLZ77 = lz77(damagedText);
 			auto partNTextLZ77 = lz77(partN);
 
+			auto randomTextRLE = RLE(randomText);
+			auto damagedTextRLE = RLE(damagedText);
+			auto partNTextRLE = RLE(partN);
+
+			auto randomTextRLE_Bit = RLE_Bit(randomText);
+			auto damagedTextRLE_Bit = RLE_Bit(damagedText);
+			auto partNTextRLE_Bit = RLE_Bit(partN);
+
 			auto result = structureCriterion(damagedTextHaffmane, randomTextHaffmane, 1.0);
 			compressions["Huffman"].fp += result.h1;
 			result = structureCriterion(randomTextHaffmane, partNTextHaffmane, 1.0);
@@ -1465,6 +1536,16 @@ int main()
 			compressions["LZ77"].fp += result.h1;
 			result = structureCriterion(randomTextLZ77, partNTextLZ77, 1.0);
 			compressions["LZ77"].fn += !result.h1;
+
+			result = structureCriterion(damagedTextRLE, randomTextRLE, 1.0);
+			compressions["RLE"].fp += result.h1;
+			result = structureCriterion(randomTextRLE, partNTextRLE, 1.0);
+			compressions["RLE"].fn += !result.h1;
+
+			result = structureCriterion(damagedTextRLE_Bit, randomTextRLE_Bit, 1.0);
+			compressions["RLE_Bit"].fp += result.h1;
+			result = structureCriterion(randomTextRLE_Bit, partNTextRLE_Bit, 1.0);
+			compressions["RLE_Bit"].fn += !result.h1;
 		}
 
 		for (auto& value : compressions)
