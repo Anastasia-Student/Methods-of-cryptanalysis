@@ -288,12 +288,14 @@ The figure looks like:
 <div align="center">
    
 ![First Iteration](Arithmetic coding 1.png)
+
 </div>
 
 In the message, the first letter is "h", so we work with the interval $[0,\frac{2}{11}]$ and sequentially divide it into segments in the same proportions as the interval [0,1], assigning the obtained parts to symbols from the alphabet.
 <div align="center">
    
 ![Second Iteration](Arithmetic coding 2.png)
+
 </div>
 
 The second character in the message is "e", so we have a segment of length $\frac{4}{121}$, which is divided as follows:
@@ -301,6 +303,7 @@ The second character in the message is "e", so we have a segment of length $\fra
 <div align="center">
 
 ![Third Iteration](Arithmetic coding 3.png)
+
 </div>
 
 We continue this procedure until we run out of characters in the text, observing which segment contains "!".
