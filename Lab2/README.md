@@ -110,6 +110,13 @@ The Shannon-Fano algorithm is one of the first algorithms that provided minimal-
       
     Therefore, for "hellohello" we have 101100111101100111.
 
+The figure looks like:
+
+<div align="center">
+   
+![Binary Tree for Shannon-Fano Algorithm](SF.png)
+</div>
+
 Below you can see the LaTeX code for generating the figure for this example. You can copy this code and use it in a LaTeX document to reproduce the figure.
    
 ```latex
@@ -138,13 +145,6 @@ child {
 \end{figure}
 ```
 
-The figure looks like:
-
-<div align="center">
-   
-![Binary Tree for Shannon-Fano Algorithm](SF.png)
-</div>
-
 ### Huffman (1952)
 
 It is interesting to note that David Huffman came up with his algorithm during his student years at MIT while working on his thesis under Robert Mario Fano. This very algorithm is still used in most compression algorithms today because it remains one of the most optimal methods for symbolic coding. To better understand this algorithm, let us consider it with an example.
@@ -159,6 +159,20 @@ It is interesting to note that David Huffman came up with his algorithm during h
   For the text "hellohello," we get the binary tree as shown in the LaTeX code below, where 0 is assigned to the left branch and 1 to the right branch.
 
 3. *Traverse the obtained tree to assign binary codes to letters. Write the initial text in its binary representation according to Huffman (starting from the root of the tree).*
+
+The figure looks like:
+<div align="center">
+   
+![Binary Tree for Huffman Algorithm](Huffman.png)
+</div>
+
+For "hellohello," we get the following codes:
+- $h=<000>$,
+- $e=<011>$,
+- $l=<100>$,
+- $o=<111>$.
+
+Thus, for "hellohello," we have 000011100111000011100111.
 
 Below you can see the LaTeX code for generating the figure for this example. You can copy this code and use it in a LaTeX document to reproduce the figure.
 
@@ -203,19 +217,6 @@ child {
 \label{pic_Huff}
 \end{figure}
 ```
-The figure looks like:
-<div align="center">
-   
-![Binary Tree for Huffman Algorithm](Huffman.png)
-</div>
-
-For "hellohello," we get the following codes:
-- $h=<000>$,
-- $e=<011>$,
-- $l=<100>$,
-- $o=<111>$.
-
-Thus, for "hellohello," we have 000011100111000011100111.
 
 **Remark:**
 It is important to note that equivalents can be constructed differently, as it depends on how we decided to divide the initial set for tree construction (Shannon-Fano algorithm) or which vertices we decided to merge (Huffman algorithm).
