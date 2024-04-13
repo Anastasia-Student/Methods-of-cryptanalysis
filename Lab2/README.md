@@ -143,7 +143,7 @@ The figure looks like:
 <div align="center">
    
 ![Binary Tree for Shannon-Fano Algorithm](SF.png)
-</div>div
+</div>
 
 ### Huffman (1952)
 
