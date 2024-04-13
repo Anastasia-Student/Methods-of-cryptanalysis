@@ -25,7 +25,7 @@
    \end{table}
    Text distortion is performed using the following methods:
    - by applying the Vigenère cipher with a random key of length $r=1,5,10$:
-     $y_i=(x_i+Key_{(i\;mod\;r)})\;mod\;m$;
+     $y_i=(x_i+Key_{(i mod r)})\;{mod m}$;
    - by applying the affine and affine bigram substitution ciphers with random keys $a,b\in (Z_m)^l$:
      $y_i=(a\cdot x_i+b)\;mod\;m^l$;
    - $y_i$ is a uniformly distributed sequence of symbols from $(Z_m)^l$;
