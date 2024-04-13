@@ -140,7 +140,7 @@ child {
 
 The figure looks like:
 
-![](https://drive.google.com/file/d/1xGUSHGOc-yq7Jod7QCa-MRMnfhdAvhBH)
+![Binary Tree for Shannon-Fano Algorithm](Lab2/SF.png)
 
 ### Huffman (1952)
 
@@ -202,7 +202,7 @@ child {
 ```
 The figure looks like:
 
-![Binary Tree for Huffman Algorithm](https://drive.google.com/uc?id=156jhC9zDx92wVPcMFgOpkC5v-mk3SC23)
+![Binary Tree for Huffman Algorithm](Lab2/Huffman.png)
 
 For "hellohello," we get the following codes:
 - $h=<000>$,
@@ -279,15 +279,15 @@ Below you can see the LaTeX code for generating the corresponding illustration. 
 ```
 The figure looks like:
 
-<img src="https://drive.google.com/file/d/1KNdAWT_kIpi0NWx-KbFfnh36019L9pwd/view?usp=sharing">
+![First Iteration](Lab2/Arithmetic coding 1.png)
 
 In the message, the first letter is "h", so we work with the interval $[0,\frac{2}{11}]$ and sequentially divide it into segments in the same proportions as the interval $[0,1]$, assigning the obtained parts to symbols from the alphabet.
 
-![Second Iteration](https://drive.google.com/file/d/181NwuTt_T24Kn7Lk9DXqfZwypRuQ9R4A)
+![Second Iteration](Lab2/Arithmetic coding 2.png)
 
 The second character in the message is "e", so we have a segment of length $\frac{4}{121}$, which is divided as follows:
 
-![Third Iteration](https://drive.google.com/file/d/1vY05YPeO5yxZhxoHnQ2ohXMQWg_fpVJM)
+![Third Iteration](Lab2/Arithmetic coding 3.png)
 
 We continue this procedure until we run out of characters in the text, observing which segment contains "!".
 
