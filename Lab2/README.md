@@ -279,7 +279,7 @@ Below you can see the LaTeX code for generating the corresponding illustration. 
 ```
 The figure looks like:
 
-![First Iteration]([https://drive.google.com/file/d/1KNdAWT_kIpi0NWx-KbFfnh36019L9pwd](https://drive.google.com/file/d/1KNdAWT_kIpi0NWx-KbFfnh36019L9pwd/view?usp=sharing))
+<img src="https://drive.google.com/file/d/1KNdAWT_kIpi0NWx-KbFfnh36019L9pwd/view?usp=sharing">
 
 In the message, the first letter is "h", so we work with the interval $[0,\frac{2}{11}]$ and sequentially divide it into segments in the same proportions as the interval $[0,1]$, assigning the obtained parts to symbols from the alphabet.
 
