@@ -253,7 +253,7 @@ There are other versions of the Lempel-Ziv algorithms. For example, unlike LZ77,
 
 ### Arithmetic coding (IBM, 1976)
 
-In arithmetic coding, the input data stream is viewed as the representation of a certain "number," for which an attempt is made to associate a certain interval from the segment [0,1] with each unique symbol of the text.
+In arithmetic coding, the input data stream is viewed as the representation of a certain "number," for which an attempt is made to associate a certain interval from the segment $[0,1]$ with each unique symbol of the text.
 
 - *Add an end-of-text symbol to the end of the message.*
 
@@ -263,7 +263,7 @@ We obtain the message "hellohello!", where "!" is the end-of-text symbol.
 
 In this example, we have the alphabet $A=\{h,e,l,o,!\}$ and the probability vector $P=(p_h,p_e,p_l,p_o,p_!)=(\frac{2}{11},\frac{2}{11},\frac{4}{11},\frac{2}{11},\frac{1}{11})$.
 
-- *Sequentially assigning the probability values to $[0,1]$, divide the interval into parts, each corresponding to a unique symbol of the text. Then, take the first character in the text and work with the interval corresponding to it, repeating the division procedure for it. Next, work with the interval corresponding to the second character of the text, and so on. The intervals become smaller and smaller, eventually allowing us to identify the point corresponding to the end-of-text symbol.*
+- *Sequentially assigning the probability values to [0,1], divide the interval into parts, each corresponding to a unique symbol of the text. Then, take the first character in the text and work with the interval corresponding to it, repeating the division procedure for it. Next, work with the interval corresponding to the second character of the text, and so on. The intervals become smaller and smaller, eventually allowing us to identify the point corresponding to the end-of-text symbol.*
 
 For the message "hellohello!", the interval $[0,\frac{2}{11}]$ corresponds to the letter "h", $[\frac{2}{11},\frac{4}{11}]$ corresponds to "e", $[\frac{4}{11},\frac{8}{11}]$ corresponds to "l", $[\frac{8}{11},\frac{10}{11}]$ corresponds to "o", and $[\frac{10}{11},1]$ corresponds to "!".
 
@@ -290,7 +290,7 @@ The figure looks like:
 ![First Iteration](Arithmetic coding 1.png)
 </div>
 
-In the message, the first letter is "h", so we work with the interval $[0,\frac{2}{11}]$ and sequentially divide it into segments in the same proportions as the interval $[0,1]$, assigning the obtained parts to symbols from the alphabet.
+In the message, the first letter is "h", so we work with the interval $[0,\frac{2}{11}]$ and sequentially divide it into segments in the same proportions as the interval [0,1], assigning the obtained parts to symbols from the alphabet.
 <div align="center">
    
 ![Second Iteration](Arithmetic coding 2.png)
