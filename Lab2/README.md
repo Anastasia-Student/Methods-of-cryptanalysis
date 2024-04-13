@@ -25,12 +25,12 @@
    \end{table}
    Text distortion is performed using the following methods:
    - by applying the Vigenère cipher with a random key of length $r=1,5,10$:
-     $y_i=(x_i+Key_{(i mod r)})mod(m)$;
+     \[ y_i = (x_i + Key_{(i \mod r)}) \mod m \];
    - by applying the affine and affine bigram substitution ciphers with random keys $a,b\in (Z_m)^l$:
-     $y_i=(a\cdot x_i+b)mod(m^l)};
+     \[ y_i = (a \cdot x_i + b) \mod (m^l) \];
    - $y_i$ is a uniformly distributed sequence of symbols from $(Z_m)^l$;
    - $y_i$ is calculated according to the following relationship:
-     $y_i=(s_{i-1} + s_{i-2})mod(m^l)$, where $s_0,s_1\in_R (Z_m)^l$.
+     \[ y_i = (s_{i-1} + s_{i-2}) \mod (m^l) \], where $s_0,s_1\in_R (Z_m)^l$.
 
 3. Implement the $l$-gram criterion and its variations (2.0-2.3 in the code), the coincidence index criterion (4.0 in the code), the empty box criterion (5.0 in the code), and the structural criterion (using the Deflate compression algorithm of the .NET platform); test their performance on generated $N$ texts for each length $L$. Calculate the probabilities of errors of the first and second kind.
    All mentioned criteria (and other formulas) that use the value $l$ should take values $l = 1$ and $l = 2$, thus implementing the unigram and bigram criteria.
@@ -62,10 +62,10 @@ I first learned about the Huffman algorithm at one of Oleg Cherny’s last lectu
 # Structural Criterion Description
 
 1. Generate a random sequence $Z$ of length $L$ from the alphabet $Z_m$, where $m=32$ (the number of letters in the Ukrainian alphabet with the substitution of the letter "ґ" with "г").
-2. Apply the data compression algorithm \textit{Algorithm} to the distorted open text $Y$ and the sequence $Z$ of length $L$, obtaining sequences of lengths $L_Y$ and $L_Z$ respectively.
-3. If $|L_Y-L_Z|\leqslant C$, then the sequence is random; otherwise, it is not ($C$ is a certain constant that may vary depending on the chosen \textit{Algorithm}).
+2. Apply the data compression algorithm *Algorithm* to the distorted open text $Y$ and the sequence $Z$ of length $L$, obtaining sequences of lengths $L_Y$ and $L_Z$ respectively.
+3. If $|L_Y-L_Z|\leqslant C$, then the sequence is random; otherwise, it is not ($C$ is a certain constant that may vary depending on the chosen *Algorithm*).
 
-It is important to note that in the work, the pseudo-random generator \textit{rand} of C++ is used, and the compression algorithms \textit{Deflate} and \textit{GZip} proposed by Microsoft in the System.IO.Compression namespace for .NET projects are chosen. In addition, implemented compression algorithms include \textit{Huffman}, \textit{Shannon-Fano}, \textit{LZ77}, \textit{arithmetic coding}, byte and bit versions of \textit{RLE}. The formulation of the third point as a comparison of the absolute difference in the length of the compressed distorted text $Y$ and the compressed random text $Z$ with a certain constant arises from the descriptions of the compression algorithms themselves, the basis of which is the idea of using statistics (letter distribution) on input data to reduce their size. Considering that the entropy of meaningful text is minimal, and random text is maximal, it is appropriate to consider $|L_Y-L_Z|$, since it is easier to compress open text (lower entropy results in shorter length). Let us consider the structure of the chosen compression algorithms.
+It is important to note that in the work, the pseudo-random generator *rand* of C++ is used, and the compression algorithms *Deflate* and *GZip* proposed by Microsoft in the System.IO.Compression namespace for .NET projects are chosen. In addition, implemented compression algorithms include *Huffman*, *Shannon-Fano*, *LZ77*, *arithmetic coding*, byte and bit versions of *RLE*. The formulation of the third point as a comparison of the absolute difference in the length of the compressed distorted text $Y$ and the compressed random text $Z$ with a certain constant arises from the descriptions of the compression algorithms themselves, the basis of which is the idea of using statistics (letter distribution) on input data to reduce their size. Considering that the entropy of meaningful text is minimal, and random text is maximal, it is appropriate to consider $|L_Y-L_Z|$, since it is easier to compress open text (lower entropy results in shorter length). Let us consider the structure of the chosen compression algorithms.
 
 ## Compression Algorithms Description
 
