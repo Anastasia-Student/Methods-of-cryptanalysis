@@ -41,7 +41,7 @@
 3. Implement the $l$-gram criterion and its variations (2.0-2.3 in the code), the coincidence index criterion (4.0 in the code), the empty box criterion (5.0 in the code), and the structural criterion (using the Deflate compression algorithm of the .NET platform); test their performance on generated $N$ texts for each length $L$. Calculate the probabilities of errors of the first and second kind.
    All mentioned criteria (and other formulas) that use the value $l$ should take values $l = 1$ and $l = 2$, thus implementing the unigram and bigram criteria.
 
-4. Generate a random text of length $L = 10000$, which is definitely not coherent text in Ukrainian (for example, a text consisting of a huge number of letter "а": <<aaaaaaaa...>>). Apply one of the distortion variants (of choice) to this text, then apply one of the implemented criteria (of choice). Compare the results of applying the criterion to different texts.
+4. Generate a random text of length $L = 10000$, which is definitely not coherent text in Ukrainian (for example, a text consisting of a huge number of letter "а": "aaaaaaaa..."). Apply one of the distortion variants (of choice) to this text, then apply one of the implemented criteria (of choice). Compare the results of applying the criterion to different texts.
 
 **Additional Tasks**:
 1. Implement structural criteria using:
