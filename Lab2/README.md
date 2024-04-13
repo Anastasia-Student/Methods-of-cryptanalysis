@@ -287,7 +287,7 @@ The figure looks like:
 
 <div align="center">
    
-![First Iteration](Arithmetic coding 1.png)
+![First Iteration](Arithmetic_coding_1.png)
 
 </div>
 
