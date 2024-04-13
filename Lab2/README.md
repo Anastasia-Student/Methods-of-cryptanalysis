@@ -10,14 +10,12 @@
    It is necessary to calculate the frequencies of letters and bigrams, as well as entropy and index of coincidence.
 
 2. Obtain $N$ texts $X$ in Ukrainian with lengths $L = 10$, $100$, $1000$, and $10000$, for each of which distorted texts $Y$ are generated. The number $N$ is determined according to the table:
-<center>
 | $L$    | $N$    |
 |--------|--------|
 | 10     | 10000  |
 | 100    | 10000  |
 | 1000   | 10000  |
 | 10000  | 1000   |
-</center>
    
    Text distortion is performed using the following methods:
    - by applying the Vigenère cipher with a random key of length $r=1,5,10$:
