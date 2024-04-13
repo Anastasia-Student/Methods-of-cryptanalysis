@@ -141,6 +141,7 @@ child {
 The figure looks like:
 
 <div align="center">
+   
 ![Binary Tree for Shannon-Fano Algorithm](SF.png)
 </div>div
 
@@ -282,6 +283,7 @@ Below you can see the LaTeX code for generating the corresponding illustration. 
 \end{center}
 ```
 The figure looks like:
+
 <div align="center">
    
 ![First Iteration](Arithmetic coding 1.png)
@@ -292,7 +294,9 @@ In the message, the first letter is "h", so we work with the interval $[0,\frac{
    
 ![Second Iteration](Arithmetic coding 2.png)
 </div>
+
 The second character in the message is "e", so we have a segment of length $\frac{4}{121}$, which is divided as follows:
+
 <div align="center">
 
 ![Third Iteration](Arithmetic coding 3.png)
