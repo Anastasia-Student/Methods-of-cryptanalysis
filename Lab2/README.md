@@ -11,7 +11,6 @@
 
 2. Obtain $N$ texts $X$ in Ukrainian with lengths $L = 10$, $100$, $1000$, and $10000$, for each of which distorted texts $Y$ are generated. The number $N$ is determined according to the table:
 <div align="center">
-   
 | $L$    | $N$    |
 |--------|--------|
 | 10     | 10000  |
