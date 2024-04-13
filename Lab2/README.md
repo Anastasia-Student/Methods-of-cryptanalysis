@@ -103,13 +103,10 @@ The Shannon-Fano algorithm is one of the first algorithms that provided minimal-
 3. *Moving through the obtained tree, assign binary codes to the letters. Write the initial text in binary representation according to Shannon-Fano.*
 
     For "hellohello" we get the following codes:
-   <div align="center">
-   
     - $h=<10>$,
     - $e=<110>$,
     - $l=<0>$,
     - $o=<111>$.
-      </div>
       
     Therefore, for "hellohello" we have 101100111101100111.
 
@@ -208,13 +205,10 @@ The figure looks like:
 ![Binary Tree for Huffman Algorithm](https://drive.google.com/uc?id=156jhC9zDx92wVPcMFgOpkC5v-mk3SC23)
 
 For "hellohello," we get the following codes:
-<div align="center">
-   
 - $h=<000>$,
 - $e=<011>$,
 - $l=<100>$,
 - $o=<111>$.
-</div>
 
 Thus, for "hellohello," we have 000011100111000011100111.
 
