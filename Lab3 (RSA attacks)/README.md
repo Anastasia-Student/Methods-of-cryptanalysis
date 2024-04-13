@@ -8,4 +8,6 @@ This work explores attacks that based on the Chinese Remainder Theorem (CRT) and
 
 - For the CRT-based attack, I found that cracking a 256-bit key $n$ with an exponent $e$ of 9 takes 2208 ms. This time increases to 3498 ms for a 1024-bit key with an exponent of 5.
 
-- For the "Meet-in-the-Middle" attack with a 2048-bit key and $l=20$, it took 5293 ms. Increasing the value of $l$ requires more computations and memory allocation. The Newton's method is implemented for finding the root in the attack using the CRT.
+- For the "Meet-in-the-Middle" attack with a 2048-bit key and $l=20$, it took 5293 ms. Increasing the value of $l$ requires more computations and memory allocation.
+
+- The Newton's method is implemented for finding the root in the attack using the CRT.
