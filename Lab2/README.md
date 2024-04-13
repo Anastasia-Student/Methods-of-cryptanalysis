@@ -25,12 +25,12 @@
    \end{table}
    Text distortion is performed using the following methods:
    - by applying the Vigenère cipher with a random key of length $r=1,5,10$:
-     $y_i=(x_i+Key_{(i mod r)})\;{mod m}$;
+     $y_i=(x_i+Key_{(i mod r)}){mod m}$;
    - by applying the affine and affine bigram substitution ciphers with random keys $a,b\in (Z_m)^l$:
-     $y_i=(a\cdot x_i+b)\;mod\;m^l$;
+     $y_i=(a\cdot x_i+b)mod{m^l$};
    - $y_i$ is a uniformly distributed sequence of symbols from $(Z_m)^l$;
    - $y_i$ is calculated according to the following relationship:
-     $y_i=(s_{i-1} + s_{i-2})\;mod\;m^l$, where $s_0,s_1\in_R (Z_m)^l$.
+     $y_i=(s_{i-1} + s_{i-2})mod{m^l}$, where $s_0,s_1\in_R (Z_m)^l$.
 
 3. Implement the $l$-gram criterion and its variations (2.0-2.3 in the code), the coincidence index criterion (4.0 in the code), the empty box criterion (5.0 in the code), and the structural criterion (using the Deflate compression algorithm of the .NET platform); test their performance on generated $N$ texts for each length $L$. Calculate the probabilities of errors of the first and second kind.
    All mentioned criteria (and other formulas) that use the value $l$ should take values $l = 1$ and $l = 2$, thus implementing the unigram and bigram criteria.
