@@ -57,7 +57,7 @@
 2. Compare the results of the obtained modifications of the structural criterion with the results of the previous criteria.
 
 
-# Progress of Work, Description of Challenges and Their Solutions
+## Progress of Work, Description of Challenges and Their Solutions
 
 During the implementation of the work, no particular difficulties arose, but the work is quite extensive, so it required some time to understand what needs to be done, as well as its implementation. Among the difficulties, choosing parameters when constructing one criterion or another can be highlighted, as it relied on intuitive approach and experiments.
 
@@ -65,7 +65,7 @@ One of the interesting aspects for me was the study of data compression algorith
 
 I first learned about the Huffman algorithm at one of Oleg Cherny’s last lectures on the algorithm analysis fundamentals, so I wanted to recall the main idea of this algorithm and later implement it. After that, I decided to implement the Shannon-Fano algorithm, as it is similar to the Huffman algorithm. After some time, I wanted to understand the LZ77 algorithm, arithmetic coding, byte and bit versions of the RLE algorithm, which were implemented towards the end of the work. Additionally, the Deflate and GZip algorithms of the .NET platform were applied for implementing the structural criterion.
 
-# Structural Criterion Description
+## Structural Criterion Description
 
 1. Generate a random sequence $Z$ of length $L$ from the alphabet $Z_m$, where $m=32$ (the number of letters in the Ukrainian alphabet with the substitution of the letter "ґ" with "г").
 2. Apply the data compression algorithm *Algorithm* to the distorted open text $Y$ and the sequence $Z$ of length $L$, obtaining sequences of lengths $L_Y$ and $L_Z$ respectively.
@@ -326,7 +326,7 @@ Finally, in this section, it is worth mentioning Shannon's theorem on optimal co
 *Theorem:*
 There is a possibility to create a system of optimal coding for discrete messages, for which the average number of binary numbers per symbol of the input message asymptotically tends to the entropy of the message source.
 
-### Conclusions
+## Conclusions
 
 Here, I worked on various statistical methods for distinguishing random text from meaningful text: criteria for prohibited/frequent $l$-grams and their variations, entropy criterion, criterion through calculating the coincidence index, empty box criterion, and structural criterion. *The work involved testing 7 methods on texts of different lengths L.* It has been shown that *for L=1000 and L=10000, as well as a large number of generations N, all methods work very well, i.e., the first and second type errors are minimal,* and the best ones are the criteria through calculating the coincidence index, the empty box criterion, and the structural criterion. The criteria 2.0-2.3 performed the worst because they take into account the presence of the most frequent letters in texts and in the absence of one of them, they give an answer that the text is random. This is particularly noticeable in short sequences; for example, criteria 2.0-2.2 identified the sequence "хлопчикщов" as random simply because the letter "а" is missing.
 
