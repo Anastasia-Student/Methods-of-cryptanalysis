@@ -140,7 +140,7 @@ child {
 
 The figure looks like:
 
-![Binary Tree for Shannon-Fano Algorithm](Lab2/SF.png)
+![Binary Tree for Shannon-Fano Algorithm](SF.png)
 
 ### Huffman (1952)
 
