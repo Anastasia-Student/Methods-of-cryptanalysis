@@ -10,32 +10,29 @@
    It is necessary to calculate the frequencies of letters and bigrams, as well as entropy and index of coincidence.
 
 2. Obtain $N$ texts $X$ in Ukrainian with lengths $L = 10$, $100$, $1000$, and $10000$, for each of which distorted texts $Y$ are generated. The number $N$ is determined according to the table:
-   \begin{table}[ht]
-       \centering
-       \begin{tabular}{|c|c|}
-           \hline
-           $L$ & $N$ \\
-           \hline
-           10 & 10000 \\
-           100 & 10000 \\
-           1000 & 10000 \\
-           10000 & 1000 \\
-           \hline
-       \end{tabular}
-   \end{table}
+<center>
+| $L$    | $N$    |
+|--------|--------|
+| 10     | 10000  |
+| 100    | 10000  |
+| 1000   | 10000  |
+| 10000  | 1000   |
+</center>
+   
    Text distortion is performed using the following methods:
    - by applying the Vigenère cipher with a random key of length $r=1,5,10$:
-     
+     <center>
      $y_i = (x_i + Key_{(i \mod r)}) \mod m$;
-     
+     </center>
    - by applying the affine and affine bigram substitution ciphers with random keys $a,b\in (Z_m)^l$:
-     
+     <center>
      $y_i = (a \cdot x_i + b) \mod (m^l)$;
-     
+     </center>
    - $y_i$ is a uniformly distributed sequence of symbols from $(Z_m)^l$;
    - $y_i$ is calculated according to the following relationship:
-     
+     <center>
      $y_i = (s_{i-1} + s_{i-2}) \mod (m^l)$, where $s_0,s_1\in_R (Z_m)^l$.
+     </center>
 
 3. Implement the $l$-gram criterion and its variations (2.0-2.3 in the code), the coincidence index criterion (4.0 in the code), the empty box criterion (5.0 in the code), and the structural criterion (using the Deflate compression algorithm of the .NET platform); test their performance on generated $N$ texts for each length $L$. Calculate the probabilities of errors of the first and second kind.
    All mentioned criteria (and other formulas) that use the value $l$ should take values $l = 1$ and $l = 2$, thus implementing the unigram and bigram criteria.
@@ -106,6 +103,7 @@ The Shannon-Fano algorithm is one of the first algorithms that provided minimal-
     - $e=<110>$,
     - $l=<0>$,
     - $o=<111>$.
+      
     Therefore, for "hellohello" we have 101100111101100111.
 
 Below you can see the LaTeX code for generating the figure for this example. You can copy this code and use it in a LaTeX document to reproduce the figure.
