@@ -4,7 +4,7 @@
 
 ## Conclusions
 
-This work explores an attack that combines the Chinese Remainder Theorem (CRT) and the "Meet-in-the-Middle" technique to break RSA encryption. I implemented the attacks and measured its execution time for different key lengths and parameters. 
+This work explores attacks that based on the Chinese Remainder Theorem (CRT) and the "Meet-in-the-Middle" technique to break RSA encryption. I implemented the attacks and measured their execution time for different key lengths and parameters. 
 
 - For the CRT-based attack, I found that cracking a 256-bit key $n$ with an exponent $e$ of 9 takes 2208 ms. This time increases to 3498 ms for a 1024-bit key with an exponent of 5.
 
