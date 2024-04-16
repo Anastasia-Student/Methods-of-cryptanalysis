@@ -261,7 +261,7 @@ We obtain the message "hellohello!", where "!" is the end-of-text symbol.
 
 - *Calculate the probabilities of encountering each symbol in the text.*
 
-In this example, we have the alphabet $A=\{ h,e,l,o,! \}$ and the probability vector $P=(p_h,p_e,p_l,p_o,p_!)=(\frac{2}{11},\frac{2}{11},\frac{4}{11},\frac{2}{11},\frac{1}{11})$.
+In this example, we have the alphabet *A={h,e,l,o,!}* and the probability vector $P=(p_h,p_e,p_l,p_o,p_!)=(\frac{2}{11},\frac{2}{11},\frac{4}{11},\frac{2}{11},\frac{1}{11})$.
 
 - *Sequentially assigning the probability values to [0,1], divide the interval into parts, each corresponding to a unique symbol of the text. Then, take the first character in the text and work with the interval corresponding to it, repeating the division procedure for it. Next, work with the interval corresponding to the second character of the text, and so on. The intervals become smaller and smaller, eventually allowing us to identify the point corresponding to the end-of-text symbol.*
 
